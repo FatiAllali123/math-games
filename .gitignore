@@ -1,0 +1,66 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+
+# User-specific files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+
+# Crashlytics or other analytics tools
+crashlytics-build.properties
+
+# Auto-generated
+*.apk
+*.aab
+
+# Unity Cache and local config
+*.unitypackage
+*.vs/
+
+# Gradle
+.gradle/
+build/
+
+# Android Studio / Kotlin
+.idea/
+*.iml
+.gradle/
+local.properties
+*.apk
+captures/
+
+# Firebase/Plugins (if generated)
+Assets/Plugins/Android/Firebase/*
+!Assets/Plugins/Android/Firebase/**/keep.meta
+
+# Uncomment this line if you're using addressables and want to ignore build data
+# Assets/AddressableAssetsData/*/Build/
+
+# Ignore any secrets or sensitive config files
+google-services.json
+
+# Ignore heavy Firebase native binaries
+Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.bundle
+Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
