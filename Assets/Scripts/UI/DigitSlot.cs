@@ -1,8 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+[RequireComponent(typeof(Text))]
 
-public class DigitSlot : MonoBehaviour, IDropHandler
+
+
+    public class DigitSlot : MonoBehaviour, IDropHandler
 {
     public Text slotText;
 
