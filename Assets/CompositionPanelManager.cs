@@ -1,38 +1,38 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events; // Add this namespace
 
 public class CompositionPanelManager : MonoBehaviour
 {
     public GameObject compositionPanelPrefab;
     public Transform panelsParent;
     public Button addCompositionButton;
-    public float verticalSpacing = 200f;
-    public Vector2 panelPosition = new Vector2(0, -100f);
+    public float verticalSpacing = 20f;
+    public Vector2 firstPanelPosition = new Vector2(0, 400f);
 
     private void Start()
     {
-        // Fix: Use proper method reference
-        addCompositionButton.onClick.AddListener(() => AddNewCompositionPanel());
+        addCompositionButton.onClick.AddListener(() => AddNewCompositionPanel(false));
 
-        // Initialize first panel
-        AddNewCompositionPanel(true);
     }
 
-    public void AddNewCompositionPanel(bool isFirstPanel = false)
+    public void AddNewCompositionPanel(bool isFirstPanel)
     {
         GameObject newPanel = Instantiate(compositionPanelPrefab, panelsParent);
 
+        // Position the panel vertically
         RectTransform rt = newPanel.GetComponent<RectTransform>();
-        rt.anchoredPosition = isFirstPanel ? panelPosition :
-            new Vector2(panelPosition.x, panelPosition.y - (panelsParent.childCount - 1) * verticalSpacing);
+        rt.anchoredPosition = isFirstPanel ?
+            firstPanelPosition :
+            new Vector2(firstPanelPosition.x, firstPanelPosition.y - (panelsParent.childCount - 1) * verticalSpacing);
 
-        CompositionGameController controller = newPanel.GetComponentInChildren<CompositionGameController>(true);
+        // Initialize the panel with the shared target number
+        var controller = newPanel.GetComponent<CompositionGameController>();
         if (controller != null)
         {
-            controller.Initialize();
+            controller.InitializeProblem();
         }
 
+        // Force UI layout update
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(panelsParent.GetComponent<RectTransform>());
     }
