@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -6,18 +6,20 @@ using UnityEngine.EventSystems;
 public class CompositionGameController : MonoBehaviour
 {
     public static CompositionGameController Instance;
-    [Header("UI References")]
-   
-    public Button submitButton; // Add this line
 
     [Header("Slot References")]
-    public DigitSlot leftDigitSlot;  // Assign the left DigitSlot object
-    public DigitSlot rightDigitSlot; // Assign the right DigitSlot object
+    public DigitSlot leftDigitSlot;
+    public DigitSlot rightDigitSlot;
 
+    [Header("UI References")]
+    public Button submitButton;
+    public TMP_Text feedbackText;
     [Header("References")]
-    public TMP_Text resultText;     // The target result display
+    public TMP_Text resultText;
 
     private int targetNumber;
+    private float feedbackTimer;
+    private bool showingFeedback;
 
     private void Awake()
     {
@@ -28,30 +30,51 @@ public class CompositionGameController : MonoBehaviour
         else
         {
             Destroy(gameObject);
+            return;
         }
 
-        // Fallback to find result text if not assigned
         if (resultText == null)
-        {
             resultText = GameObject.Find("result")?.GetComponent<TMP_Text>();
-            if (resultText == null) Debug.LogError("Couldn't find result text object!");
-        }
     }
- 
 
-    private void Start()
+    public void Initialize()
     {
-        // Add this to connect the button click event
+        Transform panelRoot = transform;
+
+        leftDigitSlot = panelRoot.Find("DigitSlotCanvasLeft/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>();
+        rightDigitSlot = panelRoot.Find("DigitSlotCanvasRight/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>();
+        resultText = panelRoot.Find("result")?.GetComponent<TMP_Text>();
+        submitButton = panelRoot.GetComponentInChildren<Button>(true);
+
+        if (leftDigitSlot != null)
+        {
+            leftDigitSlot.GetComponent<CanvasGroup>().blocksRaycasts = true;
+        }
+        if (rightDigitSlot != null)
+        {
+            rightDigitSlot.GetComponent<CanvasGroup>().blocksRaycasts = true;
+        }
+
         if (submitButton != null)
         {
+            submitButton.onClick.RemoveAllListeners();
             submitButton.onClick.AddListener(CheckSolution);
-        }
-        else
-        {
-            Debug.LogError("Submit button not assigned!");
         }
 
         GenerateNewProblem();
+    }
+
+    private void Update()
+    {
+        if (showingFeedback)
+        {
+            feedbackTimer -= Time.deltaTime;
+            if (feedbackTimer <= 0)
+            {
+                feedbackText.text = "";
+                showingFeedback = false;
+            }
+        }
     }
 
     public void GenerateNewProblem()
@@ -62,37 +85,45 @@ public class CompositionGameController : MonoBehaviour
 
         resultText.text = targetNumber.ToString();
 
-        // Clear the slots through their existing functionality
-        if (leftDigitSlot != null) leftDigitSlot.slotText.text = "";
-        if (rightDigitSlot != null) rightDigitSlot.slotText.text = "";
+        if (leftDigitSlot != null && leftDigitSlot.slotText != null)
+            leftDigitSlot.slotText.text = "";
+        if (rightDigitSlot != null && rightDigitSlot.slotText != null)
+            rightDigitSlot.slotText.text = "";
+    }
+
+
+    public void ShowFeedback(string message, float duration = 2f)
+    {
+        if (feedbackText != null)
+        {
+            feedbackText.text = message;
+            feedbackTimer = duration;
+            showingFeedback = true;
+        }
     }
 
     public void CheckSolution()
     {
-        if (leftDigitSlot == null || rightDigitSlot == null || resultText == null)
+        if (leftDigitSlot == null || leftDigitSlot.slotText == null || rightDigitSlot == null || rightDigitSlot.slotText == null || resultText == null)
         {
-            Debug.LogError("Missing references!");
+            ShowFeedback("System Error!", 3f);
             return;
         }
 
-        // Use the existing slot text values
-        string leftText = leftDigitSlot.slotText.text;
-        string rightText = rightDigitSlot.slotText.text;
-
-        if (string.IsNullOrEmpty(leftText)) return;
-        if (string.IsNullOrEmpty(rightText)) return;
-
-        if (int.TryParse(leftText, out int leftDigit) && int.TryParse(rightText, out int rightDigit))
+        if (int.TryParse(leftDigitSlot.slotText.text, out int leftDigit) && int.TryParse(rightDigitSlot.slotText.text, out int rightDigit))
         {
             if (leftDigit * rightDigit == targetNumber)
             {
-                Debug.Log("Correct!");
-                GenerateNewProblem();
+                ShowFeedback("Correct!", 1.5f);
             }
             else
             {
-                Debug.Log("Incorrect. Try again!");
+                ShowFeedback("Incorrect!", 1.5f);
             }
+        }
+        else
+        {
+            ShowFeedback("Invalid numbers!", 1f);
         }
     }
 }
