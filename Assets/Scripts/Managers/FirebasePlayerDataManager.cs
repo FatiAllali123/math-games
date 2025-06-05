@@ -1,6 +1,7 @@
 using Firebase;
 using Firebase.Database;
 using Firebase.Extensions;
+
 using UnityEngine;
 
 public class FirebasePlayerDataManager : MonoBehaviour
