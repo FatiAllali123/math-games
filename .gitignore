@@ -69,7 +69,7 @@ Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
 /Assets/Plugins/Android/google-services.xml
 
 # Unity user settings
-/[Uu]ser[Ss]ettings/
+UserSettings/
 
 # Unity logs and crash reports
 *.cache
@@ -89,4 +89,4 @@ sysinfo.txt
 *.mdb
 *.opendb
 *.VC.db
-/.vs/
+.vs/
