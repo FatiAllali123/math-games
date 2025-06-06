@@ -65,5 +65,7 @@ google-services.json
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.bundle
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
 
-UserSettings/EditorUserSettings.asset
-UserSettings/Layouts/default-6000.dwlt
+# Fichiers Unity locaux
+UserSettings/
+*.asset
+*.dwlt
