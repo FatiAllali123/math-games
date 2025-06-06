@@ -245,7 +245,7 @@ public class QRAuthenticator : MonoBehaviour
                 Debug.Log("Player data loaded.");
 
                 // Proceed to the main game scene
-                UnityEngine.SceneManagement.SceneManager.LoadScene("TestScene");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("ChoiceScene");
             }
             else
             {
