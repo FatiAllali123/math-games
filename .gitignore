@@ -64,3 +64,8 @@ google-services.json
 # Ignore heavy Firebase native binaries
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.bundle
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
+
+# Fichiers Unity locaux
+UserSettings/
+*.asset
+*.dwlt
