@@ -64,29 +64,3 @@ google-services.json
 # Ignore heavy Firebase native binaries
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.bundle
 Assets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
-
-# Firebase generated files
-/Assets/Plugins/Android/google-services.xml
-
-# Unity user settings
-UserSettings/
-
-# Unity logs and crash reports
-*.cache
-*.stacktrace
-*.crash
-*.crash.log
-*.dmp
-sysinfo.txt
-
-# Generic temporary files
-*~
-*.bak
-*.swp
-
-# Visual Studio / MonoDevelop additional files
-*.pdb
-*.mdb
-*.opendb
-*.VC.db
-.vs/
