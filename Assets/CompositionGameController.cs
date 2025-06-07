@@ -12,15 +12,6 @@ public class CompositionGameController : MonoBehaviour
     public Button submitButton;
     public TMP_Text feedbackText;
     public TMP_Text resultText;
-    [Header("Avatar Settings")]
-    public GameObject avatarObject;  // Drag your avatar GameObject here
-    public TMP_Text avatarSpeechText; // Text for avatar's speech bubble
-    public string[] correctMessages = {
-        "Correct! Well done!",
-        "Great job! Want to try another?",
-        "Perfect! More coins await!",
-        "You're good at this!"
-    };
 
     private static int sharedTargetNumber;
     private static bool isInitialized = false;
@@ -111,6 +102,12 @@ public class CompositionGameController : MonoBehaviour
 
     public void CheckSolution()
     {
+        if (!TimeManager.Instance.IsGameActive())
+        {
+            ShowFeedback("Time's up! Game Over!", 2f);
+            return;
+        }
+
         if (leftDigitSlot == null || leftDigitSlot.slotText == null ||
             rightDigitSlot == null || rightDigitSlot.slotText == null)
         {
