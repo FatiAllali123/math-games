@@ -11,6 +11,5 @@ public class PlayerProfile
     public int questionsSolved;
     public List<string> skillsToImprove;
     public RewardData rewardProfile;
-    public Dictionary<string, GameProgressEntry> gameProgress;
-    public AchievementData achievements;
+ 
 }
