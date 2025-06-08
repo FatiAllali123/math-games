@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: dcb13d1620095f6438a251542200ea8a
+guid: fde2d4638b7c7bc41b8d833fffabee1b
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1061016824150347677
-    second: flash-sale_0
+      213: -2875629113980399187
+    second: 3D cartoon group of little children on transparent background__0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: flash-sale_0
+      name: 3D cartoon group of little children on transparent background__0
       rect:
         serializedVersion: 2
         x: 0
-        y: 53
-        width: 512
-        height: 406
+        y: 0
+        width: 736
+        height: 736
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d9fc1381e2d79be00800000000000000
-      internalID: 1061016824150347677
+      spriteID: da15d6b7e86b718d0800000000000000
+      internalID: -2875629113980399187
       vertices: []
       indices: 
       edges: []
@@ -147,8 +147,7 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable:
-      flash-sale_0: 1061016824150347677
+    nameFileIdTable: {}
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

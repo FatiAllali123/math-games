@@ -13,27 +13,32 @@ public class CompositionPanelManager : MonoBehaviour
     {
         addCompositionButton.onClick.AddListener(() => AddNewCompositionPanel(false));
 
-       
     }
 
     public void AddNewCompositionPanel(bool isFirstPanel)
     {
         GameObject newPanel = Instantiate(compositionPanelPrefab, panelsParent);
 
-        // Position the panel vertically
+        // Position the panel
         RectTransform rt = newPanel.GetComponent<RectTransform>();
         rt.anchoredPosition = isFirstPanel ?
             firstPanelPosition :
             new Vector2(firstPanelPosition.x, firstPanelPosition.y - (panelsParent.childCount - 1) * verticalSpacing);
 
-        // Initialize the panel with the shared target number
+        // Initialize the panel
         var controller = newPanel.GetComponent<CompositionGameController>();
         if (controller != null)
         {
             controller.InitializeProblem();
         }
 
-        // Force UI layout update
+        // Add extra time for additional panels
+        if (!isFirstPanel && TimeManager.Instance != null)
+        {
+            TimeManager.Instance.AddExtraTime();
+        }
+
+        // Update layout
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(panelsParent.GetComponent<RectTransform>());
     }
