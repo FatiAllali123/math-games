@@ -1,10 +1,10 @@
 using Firebase.Database;
-using UnityEngine.UI; // Pour manipuler les éléments UI
+using UnityEngine.UI; // Pour manipuler les ï¿½lï¿½ments UI
 using Firebase.Extensions;
 using System.Collections;
 using UnityEngine;
 using ZXing; // Librairie pour lire les QR codes
-using System.Linq; // Permet d’utiliser des méthodes LINQ (comme FirstOrDefault)
+using System.Linq; // Permet dï¿½utiliser des mï¿½thodes LINQ (comme FirstOrDefault)
 using TMPro;
 using System;
 using System.Collections.Generic;
@@ -17,15 +17,15 @@ using System.Collections.Generic;
 public class QRAuthenticator : MonoBehaviour
 {
     public GameObject authenticationPanel;
-    public Text statusText; // Texte affichant les messages (ex: "Vérification en cours...")
-    public RawImage cameraFeed;   // Pour afficher la caméra dans l'UI
+    public Text statusText; // Texte affichant les messages (ex: "Vï¿½rification en cours...")
+    public RawImage cameraFeed;   // Pour afficher la camï¿½ra dans l'UI
 
     private DatabaseReference dbReference;
 
-    private WebCamTexture backCameraTexture; //   lit la vidéo de la caméra.
-    private IBarcodeReader barcodeReader; // scanner le QR code à partir des images caméra.
+    private WebCamTexture backCameraTexture; //   lit la vidï¿½o de la camï¿½ra.
+    private IBarcodeReader barcodeReader; // scanner le QR code ï¿½ partir des images camï¿½ra.
 
-    // uv  est utilisé pour corriger l’orientation du feed caméra.
+    // uv  est utilisï¿½ pour corriger lï¿½orientation du feed camï¿½ra.
     private readonly Rect uvRectFlipped = new(1f, 0f, -1f, 1f);
     private readonly Rect uvRectNormal = new(0f, 0f, 1f, 1f);
 
@@ -46,7 +46,7 @@ public class QRAuthenticator : MonoBehaviour
         {
             if (FirebaseInitializer.Instance.IsFirebaseInitialized)
             {
-                dbReference = FirebaseInitializer.Instance.DbReference; // référence vers la base de données.
+                dbReference = FirebaseInitializer.Instance.DbReference; // rï¿½fï¿½rence vers la base de donnï¿½es.
                 statusText.text = "Checking camera permissions...";
 
                 if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
@@ -187,7 +187,7 @@ public class QRAuthenticator : MonoBehaviour
     }
 
 
-    //Authentification d’un utilisateur via QR
+    //Authentification dï¿½un utilisateur via QR
     private void AuthenticateUser(string rawData)
     {
         statusText.text = "Verifying QR Code...";
@@ -195,7 +195,7 @@ public class QRAuthenticator : MonoBehaviour
         try
         {
             var qrPayload = JsonUtility.FromJson<PlayerQRPayload>(rawData);
-            // On lit les données du QR code (qui doivent contenir un uid et un pin).
+            // On lit les donnï¿½es du QR code (qui doivent contenir un uid et un pin).
             if (qrPayload == null || string.IsNullOrEmpty(qrPayload.uid) || string.IsNullOrEmpty(qrPayload.pin))
             {
                 statusText.text = "Invalid QR Code format.";
@@ -206,7 +206,7 @@ public class QRAuthenticator : MonoBehaviour
             string enteredPin = qrPayload.pin;
 
 
-            // on compare le pin avec celui stocké dans Firebase
+            // on compare le pin avec celui stockï¿½ dans Firebase
             var pinRef = dbReference.Child("users").Child(uid).Child("password");
             pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
             {
@@ -254,7 +254,7 @@ public class QRAuthenticator : MonoBehaviour
                     // Stocker dans le singleton
                     UserSession.Instance.SetUserData(userData);
 
-                    // Ensuite charger la scène principale
+                    // Ensuite charger la scï¿½ne principale
                     UnityEngine.SceneManagement.SceneManager.LoadScene("WelcomeScene");
                 }
                 else
@@ -283,17 +283,16 @@ public class QRAuthenticator : MonoBehaviour
             {
                 Debug.Log("Raw Firebase data: " + task.Result.GetRawJsonValue());
 
-<<<<<<< HEAD
                 try
                 {
-                    // Créer manuellement UserData à partir des données Firebase
+                    // Crï¿½er manuellement UserData ï¿½ partir des donnï¿½es Firebase
                     UserData userData = ParseUserDataFromSnapshot(task.Result);
 
                     if (userData != null)
                     {
                         Debug.Log("User data loaded successfully: " + userData.firstName + " " + userData.lastName);
 
-                        // Vérifier que UserSession existe
+                        // Vï¿½rifier que UserSession existe
                         if (UserSession.Instance == null)
                         {
                             Debug.LogError("UserSession.Instance is null! Make sure UserSession GameObject exists in the scene.");
@@ -304,7 +303,7 @@ public class QRAuthenticator : MonoBehaviour
                         // Stocker dans le singleton
                         UserSession.Instance.SetUserData(userData);
 
-                        // Attendre un frame avant de changer de scène
+                        // Attendre un frame avant de changer de scï¿½ne
                         StartCoroutine(LoadSceneDelayed());
                     }
                     else
@@ -318,10 +317,6 @@ public class QRAuthenticator : MonoBehaviour
                     Debug.LogError("Exception while parsing user data: " + ex.Message + "\n" + ex.StackTrace);
                     statusText.text = "Error loading user data.";
                 }
-=======
-                // Proceed to the main game scene
-                UnityEngine.SceneManagement.SceneManager.LoadScene("ChoiceScene");
->>>>>>> 146b5a7c74d461312df39296925316642abbaefe
             }
             else
             {
@@ -359,7 +354,7 @@ public class QRAuthenticator : MonoBehaviour
             }
             else
             {
-                userData.schoolGrade = GradeLevel.One; // Valeur par défaut
+                userData.schoolGrade = GradeLevel.One; // Valeur par dï¿½faut
             }
 
             // Parse PlayerProfile
@@ -382,7 +377,7 @@ public class QRAuthenticator : MonoBehaviour
                 }
                 else
                 {
-                    userData.playerProfile.schoolGrade = GradeLevel.One; // Valeur par défaut
+                    userData.playerProfile.schoolGrade = GradeLevel.One; // Valeur par dï¿½faut
                 }
 
                 // Parse skillsToImprove
@@ -503,14 +498,14 @@ public class QRAuthenticator : MonoBehaviour
                     }
                     else
                     {
-                        Debug.LogWarning("Impossible de lire les utilisateurs ou aucun utilisateur trouvé.");
+                        Debug.LogWarning("Impossible de lire les utilisateurs ou aucun utilisateur trouvï¿½.");
                     }
                 });
 
 
-                Debug.Log("Référence Firebase: " + dbReference);
-                Debug.Log("UID entré: '" + uid + "'");
-                Debug.Log("PIN entré: '" + enteredPin + "'");
+                Debug.Log("Rï¿½fï¿½rence Firebase: " + dbReference);
+                Debug.Log("UID entrï¿½: '" + uid + "'");
+                Debug.Log("PIN entrï¿½: '" + enteredPin + "'");
                 if (task.IsCompleted && task.Result.Exists)
                 {
                     string storedPin = task.Result.Value.ToString();
