@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "628074260840",
+    "firebase_url": "https://mathoria-5e81d-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "mathoria-5e81d",
+    "storage_bucket": "mathoria-5e81d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628074260840:android:33e2334fe0c39526640edd",
+        "android_client_info": {
+          "package_name": "com.rokku.mathoria"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0OWxqEmDwQ7sBWs6DM-W9xYYP0Xsi-ag"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
