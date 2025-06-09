@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 6d2975db368fd9242b0123697257e3fe
+guid: 4babda57d3b06814f9975269f0831116
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3628244326652171351
-    second: vector-logo-that-says--mathoria---colorful-3d-cart (1)_0
+      213: -2424453428984153791
+    second: reload_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: vector-logo-that-says--mathoria---colorful-3d-cart (1)_0
+      name: reload_0
       rect:
         serializedVersion: 2
-        x: 0
+        x: 28
         y: 0
-        width: 1024
-        height: 1024
+        width: 456
+        height: 512
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9ab22971203e5adc0800000000000000
-      internalID: -3628244326652171351
+      spriteID: 149fbee937c9a5ed0800000000000000
+      internalID: -2424453428984153791
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      vector-logo-that-says--mathoria---colorful-3d-cart (1)_0: -3628244326652171351
+      reload_0: -2424453428984153791
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

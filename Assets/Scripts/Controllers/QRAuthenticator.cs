@@ -272,7 +272,7 @@ public class QRAuthenticator : MonoBehaviour
 
     */
 
-    private void LoadPlayerData(string uid)
+   private void LoadPlayerData(string uid)
     {
         statusText.text = "Welcome back! Loading your profile...";
 
@@ -329,6 +329,7 @@ public class QRAuthenticator : MonoBehaviour
             }
         });
     }
+
 
 
     private UserData ParseUserDataFromSnapshot(DataSnapshot snapshot)

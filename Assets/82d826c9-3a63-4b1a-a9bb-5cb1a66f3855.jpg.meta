@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: dcb13d1620095f6438a251542200ea8a
+guid: e00cd3d3178a7ae4eabacb3788be5519
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1061016824150347677
-    second: flash-sale_0
+      213: -7696270054041861322
+    second: 82d826c9-3a63-4b1a-a9bb-5cb1a66f3855_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: flash-sale_0
+      name: 82d826c9-3a63-4b1a-a9bb-5cb1a66f3855_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 53
-        width: 512
-        height: 406
+        y: 0
+        width: 6844
+        height: 2800
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d9fc1381e2d79be00800000000000000
-      internalID: 1061016824150347677
+      spriteID: 633cb55992b513590800000000000000
+      internalID: -7696270054041861322
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      flash-sale_0: 1061016824150347677
+      82d826c9-3a63-4b1a-a9bb-5cb1a66f3855_0: -7696270054041861322
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

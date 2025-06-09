@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: 6d2975db368fd9242b0123697257e3fe
+guid: 185323d20bab9d0488888698ba1f5d8e
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3628244326652171351
-    second: vector-logo-that-says--mathoria---colorful-3d-cart (1)_0
+      213: 2650913928579206598
+    second: winner_0
+  - first:
+      213: 2623842405590999597
+    second: winner_1
+  - first:
+      213: 7387550310862708456
+    second: winner_2
+  - first:
+      213: 2911583734533505880
+    second: winner_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +122,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: vector-logo-that-says--mathoria---colorful-3d-cart (1)_0
+      name: winner_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
-        width: 1024
-        height: 1024
+        y: 232
+        width: 151
+        height: 144
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +137,74 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9ab22971203e5adc0800000000000000
-      internalID: -3628244326652171351
+      spriteID: 6cd49134c20f9c420800000000000000
+      internalID: 2650913928579206598
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: winner_1
+      rect:
+        serializedVersion: 2
+        x: 164
+        y: 337
+        width: 184
+        height: 175
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d22abd324c2c96420800000000000000
+      internalID: 2623842405590999597
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: winner_2
+      rect:
+        serializedVersion: 2
+        x: 361
+        y: 232
+        width: 151
+        height: 144
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8ee5c47edd9d58660800000000000000
+      internalID: 7387550310862708456
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: winner_3
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 512
+        height: 154
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 853cca6faf5086820800000000000000
+      internalID: 2911583734533505880
       vertices: []
       indices: 
       edges: []
@@ -148,7 +223,10 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      vector-logo-that-says--mathoria---colorful-3d-cart (1)_0: -3628244326652171351
+      winner_0: 2650913928579206598
+      winner_1: 2623842405590999597
+      winner_2: 7387550310862708456
+      winner_3: 2911583734533505880
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

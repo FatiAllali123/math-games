@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class CompositionGameController : MonoBehaviour
 {
@@ -12,13 +13,28 @@ public class CompositionGameController : MonoBehaviour
     public Button submitButton;
     public TMP_Text feedbackText;
     public TMP_Text resultText;
+    public TMP_Text compositionsFoundText;
+    public TMP_Text targetText;
 
     private static int sharedTargetNumber;
     private static bool isInitialized = false;
+    private static HashSet<string> foundCompositions = new HashSet<string>();
+    private static List<Vector2Int> allPossibleCompositions = new List<Vector2Int>();
 
     private int targetNumber;
     private float feedbackTimer;
     private bool showingFeedback;
+
+    // Numbers with at least 3 unique factor pairs (order doesn't matter)
+    private readonly int[] validTargets = {
+        12,  // (1,12), (2,6), (3,4)
+        18,  // (1,18), (2,9), (3,6)
+        24,  // (1,24), (2,12), (3,8), (4,6)
+        36,  // (1,36), (2,18), (3,12), (4,9), (6,6)
+        48,  // (1,48), (2,24), (3,16), (4,12), (6,8)
+        60,  // (1,60), (2,30), (3,20), (4,15), (5,12), (6,10)
+        72   // (1,72), (2,36), (3,24), (4,18), (6,12), (8,9)
+    };
 
     private void Awake()
     {
@@ -42,7 +58,6 @@ public class CompositionGameController : MonoBehaviour
 
     private void FindReferences()
     {
-        // Find references relative to this panel's transform
         if (leftDigitSlot == null)
             leftDigitSlot = transform.Find("DigitSlotCanvasLeft/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>();
 
@@ -57,6 +72,12 @@ public class CompositionGameController : MonoBehaviour
 
         if (feedbackText == null)
             feedbackText = transform.Find("FeedbackText")?.GetComponent<TMP_Text>();
+
+        if (compositionsFoundText == null)
+            compositionsFoundText = transform.Find("CompositionsFoundText")?.GetComponent<TMP_Text>();
+
+        if (targetText == null)
+            targetText = transform.Find("TargetText")?.GetComponent<TMP_Text>();
     }
 
     private void SetupButton()
@@ -70,24 +91,58 @@ public class CompositionGameController : MonoBehaviour
 
     public void InitializeProblem()
     {
-        // Only generate new numbers if this is the first panel
         if (!isInitialized)
         {
-            int left = Random.Range(1, 10);
-            int right = Random.Range(1, 10);
-            sharedTargetNumber = left * right;
+            GenerateValidTargetNumber();
             isInitialized = true;
         }
 
         targetNumber = sharedTargetNumber;
         resultText.text = targetNumber.ToString();
+        targetText.text = $"{targetNumber}";
+        UpdateCompositionsFoundText();
 
-        // Clear previous digits
         if (leftDigitSlot != null && leftDigitSlot.slotText != null)
             leftDigitSlot.slotText.text = "";
 
         if (rightDigitSlot != null && rightDigitSlot.slotText != null)
             rightDigitSlot.slotText.text = "";
+    }
+
+    private void GenerateValidTargetNumber()
+    {
+        // Pick a random target from our valid numbers
+        sharedTargetNumber = validTargets[Random.Range(0, validTargets.Length)];
+
+        // Find all unique factor pairs (order doesn't matter)
+        allPossibleCompositions = FindUniqueCompositions(sharedTargetNumber);
+        foundCompositions.Clear();
+    }
+
+    private List<Vector2Int> FindUniqueCompositions(int target)
+    {
+        var compositions = new List<Vector2Int>();
+        var usedPairs = new HashSet<string>();
+
+        for (int i = 1; i <= 9; i++)
+        {
+            if (target % i == 0)
+            {
+                int j = target / i;
+                if (j >= 1 && j <= 9)
+                {
+                    // Create a normalized key (smaller number first)
+                    string pairKey = i <= j ? $"{i},{j}" : $"{j},{i}";
+
+                    if (!usedPairs.Contains(pairKey))
+                    {
+                        usedPairs.Add(pairKey);
+                        compositions.Add(new Vector2Int(i, j));
+                    }
+                }
+            }
+        }
+        return compositions;
     }
 
     public void ShowFeedback(string message, float duration = 2f)
@@ -102,12 +157,6 @@ public class CompositionGameController : MonoBehaviour
 
     public void CheckSolution()
     {
-        if (!TimeManager.Instance.IsGameActive())
-        {
-            ShowFeedback("Time's up! Game Over!", 2f);
-            return;
-        }
-
         if (leftDigitSlot == null || leftDigitSlot.slotText == null ||
             rightDigitSlot == null || rightDigitSlot.slotText == null)
         {
@@ -118,7 +167,13 @@ public class CompositionGameController : MonoBehaviour
         if (!int.TryParse(leftDigitSlot.slotText.text, out int leftDigit) ||
             !int.TryParse(rightDigitSlot.slotText.text, out int rightDigit))
         {
-            ShowFeedback("Please enter valid numbers!", 1.5f);
+            ShowFeedback("Please enter numbers 1-9!", 1.5f);
+            return;
+        }
+
+        if (leftDigit < 1 || leftDigit > 9 || rightDigit < 1 || rightDigit > 9)
+        {
+            ShowFeedback("Numbers must be between 1-9!", 1.5f);
             return;
         }
 
@@ -126,11 +181,43 @@ public class CompositionGameController : MonoBehaviour
 
         if (product == targetNumber)
         {
-            ShowFeedback("Correct! Well done!", 1.5f);
+            // Create normalized key (smaller number first)
+            int a = Mathf.Min(leftDigit, rightDigit);
+            int b = Mathf.Max(leftDigit, rightDigit);
+            string compositionKey = $"{a},{b}";
+
+            if (foundCompositions.Contains(compositionKey))
+            {
+                ShowFeedback($"You already found {a}×{b}!", 1.5f);
+            }
+            else
+            {
+                foundCompositions.Add(compositionKey);
+                UpdateCompositionsFoundText();
+                ShowFeedback($"Correct! {leftDigit}×{rightDigit}={targetNumber}\nFound {foundCompositions.Count}/{allPossibleCompositions.Count} unique pairs", 2f);
+                ScoreManager.Instance.AddScore(10);
+
+                // Check win condition (half rounded up)
+                int requiredToWin = Mathf.CeilToInt(allPossibleCompositions.Count / 2f);
+                if (foundCompositions.Count >= requiredToWin)
+                {
+                    ShowFeedback($"You win! Found enough unique pairs!", 3f);
+                    // Add win celebration logic here
+                }
+            }
         }
         else
         {
-            ShowFeedback($"Incorrect. Try again! (Your answer: {product})", 1.5f);
+            ShowFeedback($"Incorrect! {leftDigit}×{rightDigit}={product}, not {targetNumber}", 1.5f);
+            ScoreManager.Instance.AddScore(-5);
+        }
+    }
+
+    private void UpdateCompositionsFoundText()
+    {
+        if (compositionsFoundText != null)
+        {
+            compositionsFoundText.text = $"Unique pairs found: {foundCompositions.Count}/{allPossibleCompositions.Count}";
         }
     }
 }
