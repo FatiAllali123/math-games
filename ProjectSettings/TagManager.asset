@@ -3,8 +3,7 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 3
-  tags:
-  - DigitSlot
+  tags: []
   layers:
   - Default
   - TransparentFX
@@ -39,6 +38,15 @@ TagManager:
   - 
   - 
   m_SortingLayers:
+  - name: Background
+    uniqueID: 3004925089
+    locked: 0
+  - name: Default
+    uniqueID: 1578877569
+    locked: 0
+  - name: UI
+    uniqueID: 4217683007
+    locked: 0
   - name: Default
     uniqueID: 0
     locked: 0

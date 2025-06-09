@@ -1,48 +1,35 @@
 using Firebase.Database;
-using UnityEngine.UI; // Pour manipuler les ÈlÈments UI
+using UnityEngine.UI;
 using Firebase.Extensions;
 using System.Collections;
 using UnityEngine;
-using ZXing; // Librairie pour lire les QR codes
-using System.Linq; // Permet díutiliser des mÈthodes LINQ (comme FirstOrDefault)
+using ZXing;
+using System.Linq;
 using TMPro;
 using System;
-
-
 
 public class QRAuthenticator : MonoBehaviour
 {
     public GameObject authenticationPanel;
-    public Text statusText; // Texte affichant les messages (ex: "VÈrification en cours...")
-    public RawImage cameraFeed;   // Pour afficher la camÈra dans l'UI
-
-    private DatabaseReference dbReference;
-
-    private WebCamTexture backCameraTexture; //   lit la vidÈo de la camÈra.
-    private IBarcodeReader barcodeReader; // scanner le QR code ‡ partir des images camÈra.
-
-    // uv  est utilisÈ pour corriger líorientation du feed camÈra.
-    private readonly Rect uvRectFlipped = new(1f, 0f, -1f, 1f);
-    private readonly Rect uvRectNormal = new(0f, 0f, 1f, 1f);
-
-
-    //ajoute pour tester sans qr code 
+    public Text statusText;
+    public RawImage cameraFeed;
     public TMP_InputField uidInput;
     public TMP_InputField pinInput;
     public Button manualLoginButton;
 
-
+    private DatabaseReference dbReference;
+    private WebCamTexture backCameraTexture;
+    private IBarcodeReader barcodeReader;
+    private readonly Rect uvRectFlipped = new(1f, 0f, -1f, 1f);
+    private readonly Rect uvRectNormal = new(0f, 0f, 1f, 1f);
 
     void Start()
     {
-
-
-        //  initialiser Firebase.
         FirebaseInitializer.Instance.InitializeFirebase(() =>
         {
             if (FirebaseInitializer.Instance.IsFirebaseInitialized)
             {
-                dbReference = FirebaseInitializer.Instance.DbReference; // rÈfÈrence vers la base de donnÈes.
+                dbReference = FirebaseInitializer.Instance.DbReference;
                 statusText.text = "Checking camera permissions...";
 
                 if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
@@ -54,21 +41,14 @@ public class QRAuthenticator : MonoBehaviour
                     SetupCamera();
                 }
             }
-
-
         });
 
-        // ajoutee pour login auth mannuel 
         manualLoginButton.onClick.AddListener(() =>
         {
             string uid = uidInput.text.Trim();
             string pin = pinInput.text.Trim();
             AuthenticateUserManual(uid, pin);
         });
-
-
-
-
     }
 
     private IEnumerator RequestCameraPermission()
@@ -104,18 +84,15 @@ public class QRAuthenticator : MonoBehaviour
         }
 
         backCameraTexture = new WebCamTexture(backCamName, 960, 960);
-
         backCameraTexture.requestedFPS = 30;
         backCameraTexture.filterMode = FilterMode.Bilinear;
 
-        cameraFeed.texture = null; // Clear first
+        cameraFeed.texture = null;
         cameraFeed.texture = backCameraTexture;
         cameraFeed.material = null;
         cameraFeed.color = Color.white;
 
         backCameraTexture.Play();
-
-        // Wait until the camera starts updating
         StartCoroutine(AdjustCameraOrientation());
 
         barcodeReader = new BarcodeReader
@@ -131,7 +108,6 @@ public class QRAuthenticator : MonoBehaviour
 
         Debug.Log("Camera playing: " + backCameraTexture.isPlaying);
         Debug.Log("Camera frame size: " + backCameraTexture.width + "x" + backCameraTexture.height);
-
 
         StartCoroutine(ScanQRCode());
     }
@@ -151,10 +127,8 @@ public class QRAuthenticator : MonoBehaviour
         }
 
         cameraFeed.rectTransform.localEulerAngles = new Vector3(0, 0, angle);
-
         bool needsFlip = (backCameraTexture.videoVerticallyMirrored && !WebCamTexture.devices[0].isFrontFacing)
                       || (!backCameraTexture.videoVerticallyMirrored && WebCamTexture.devices[0].isFrontFacing);
-
         cameraFeed.uvRect = needsFlip ? uvRectFlipped : uvRectNormal;
     }
 
@@ -164,7 +138,6 @@ public class QRAuthenticator : MonoBehaviour
         {
             if (backCameraTexture.didUpdateThisFrame)
             {
-                // Convert the camera frame to a color array
                 Color32[] colors = backCameraTexture.GetPixels32();
                 var barcodeResult = barcodeReader.Decode(colors, backCameraTexture.width, backCameraTexture.height);
 
@@ -182,8 +155,6 @@ public class QRAuthenticator : MonoBehaviour
         }
     }
 
-
-    //Authentification díun utilisateur via QR
     private void AuthenticateUser(string rawData)
     {
         statusText.text = "Verifying QR Code...";
@@ -191,7 +162,6 @@ public class QRAuthenticator : MonoBehaviour
         try
         {
             var qrPayload = JsonUtility.FromJson<PlayerQRPayload>(rawData);
-            // On lit les donnÈes du QR code (qui doivent contenir un uid et un pin).
             if (qrPayload == null || string.IsNullOrEmpty(qrPayload.uid) || string.IsNullOrEmpty(qrPayload.pin))
             {
                 statusText.text = "Invalid QR Code format.";
@@ -201,15 +171,12 @@ public class QRAuthenticator : MonoBehaviour
             string uid = qrPayload.uid;
             string enteredPin = qrPayload.pin;
 
-
-            // on compare le pin avec celui stockÈ dans Firebase
             var pinRef = dbReference.Child("users").Child(uid).Child("password");
             pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
             {
                 if (task.IsCompleted && task.Result.Exists)
                 {
                     string storedPin = task.Result.Value.ToString();
-
                     if (enteredPin == storedPin)
                     {
                         statusText.text = "Authentication successful!";
@@ -232,34 +199,8 @@ public class QRAuthenticator : MonoBehaviour
         }
     }
 
-    private void LoadPlayerData(string uid)
-    {
-        statusText.text = "Welcome back! Loading your profile...";
-
-        DatabaseReference playerRef = dbReference.Child("users").Child(uid);
-        playerRef.GetValueAsync().ContinueWithOnMainThread(task =>
-        {
-            if (task.IsCompleted && task.Result.Exists)
-            {
-                var playerData = task.Result;
-                Debug.Log("Player data loaded.");
-
-                // Proceed to the main game scene
-                UnityEngine.SceneManagement.SceneManager.LoadScene("TestScene");
-            }
-            else
-            {
-                statusText.text = "Failed to load player data.";
-            }
-        });
-    }
-
-
-
-    // fct pour authentifier manellemnt sans qrcode 
     private void AuthenticateUserManual(string uid, string enteredPin)
     {
-
         try
         {
             if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(enteredPin))
@@ -273,35 +214,9 @@ public class QRAuthenticator : MonoBehaviour
             var pinRef = dbReference.Child("users").Child(uid).Child("password");
             pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
             {
-
-
-                dbReference.Child("users").GetValueAsync().ContinueWith(task2 => {
-                    if (task2.IsCompleted && task2.Result.Exists)
-                    {
-                        DataSnapshot snapshot = task2.Result;
-                        foreach (var user in snapshot.Children)
-                        {
-                            string userId = user.Key;
-                            string role = user.Child("role").Value?.ToString();
-                            string pass = user.Child("password").Value?.ToString();
-
-                            Debug.Log("UID: " + userId + ", Nom: " + role + ", Email: " + pass);
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogWarning("Impossible de lire les utilisateurs ou aucun utilisateur trouvÈ.");
-                    }
-                });
-
-
-                Debug.Log("RÈfÈrence Firebase: " + dbReference);
-                Debug.Log("UID entrÈ: '" + uid + "'");
-                Debug.Log("PIN entrÈ: '" + enteredPin + "'");
                 if (task.IsCompleted && task.Result.Exists)
                 {
                     string storedPin = task.Result.Value.ToString();
-
                     if (enteredPin == storedPin)
                     {
                         statusText.text = "Authentication successful!";
@@ -317,14 +232,155 @@ public class QRAuthenticator : MonoBehaviour
                     statusText.text = "User not found.";
                 }
             });
-
         }
-
         catch (Exception ex)
         {
             Debug.LogError("Exception dans le bloc Firebase: " + ex.Message + "\n" + ex.StackTrace);
+            statusText.text = "Authentication error.";
         }
-
     }
 
+    private void LoadPlayerData(string uid)
+    {
+        statusText.text = "Welcome back! Loading your profile...";
+
+        dbReference.Child("users").Child(uid).GetValueAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompleted && task.Result.Exists)
+            {
+                var playerData = task.Result;
+                string schoolGrade = playerData.Child("schoolGrade").Value.ToString();
+                Debug.Log($"Grade de l'√©tudiant {uid} : {schoolGrade}");
+
+                // V√©rifier si l'√©tudiant est en grade 5 ou 6
+                if (schoolGrade != "5" && schoolGrade != "6")
+                {
+                    statusText.text = "Seuls les √©tudiants de grade 5 ou 6 peuvent jouer.";
+                    Debug.LogError($"Grade non autoris√© : {schoolGrade}");
+                    return;
+                }
+
+                // V√©rifier les tests pour vertical_operations avec Multiplication
+                dbReference.Child("tests").GetValueAsync().ContinueWithOnMainThread(testTask =>
+                {
+                    if (testTask.IsCompleted && testTask.Result.Exists)
+                    {
+                        bool hasValidTest = false;
+                        int maxNumberRange = 3; // Valeur par d√©faut
+                        int numOperations = 5; // Valeur par d√©faut
+                        float requiredCorrectAnswersMinimumPercent = 75f; // Valeur par d√©faut
+
+                        foreach (DataSnapshot test in testTask.Result.Children)
+                        {
+                            string testId = test.Key;
+                            string testGrade = test.Child("grade").Value.ToString();
+                            Debug.Log($"Analyse du test {testId} pour le grade {testGrade}");
+
+                            // V√©rifier que le test est pour grade 5 ou 6
+                            if (testGrade != "5" && testGrade != "6")
+                            {
+                                Debug.Log($"Test {testId} ignor√© : grade {testGrade} non autoris√©.");
+                                continue;
+                            }
+
+                            // V√©rifier explicitement si le test contient vertical_operations
+                            if (!test.HasChild("miniGameConfigs/vertical_operations"))
+                            {
+                                Debug.Log($"Test {testId} ignor√© : pas de miniGameConfigs/vertical_operations.");
+                                continue;
+                            }
+
+                            // V√©rifier que groupsMiniGameOrder contient vertical_operations
+                            if (!test.HasChild("groupsMiniGameOrder/o") || !test.Child("groupsMiniGameOrder/o").Children.Any(child => child.Value.ToString() == "vertical_operations"))
+                            {
+                                Debug.Log($"Test {testId} ignor√© : vertical_operations non inclus dans groupsMiniGameOrder/o.");
+                                continue;
+                            }
+
+                            DataSnapshot verticalOpsConfig = test.Child("miniGameConfigs/vertical_operations");
+                            bool isMultiplication = false;
+
+                            // V√©rifier groupsConfig pour s'assurer que l'√©tudiant est assign√©
+                            if (verticalOpsConfig.HasChild("groupsConfig"))
+                            {
+                                foreach (DataSnapshot group in verticalOpsConfig.Child("groupsConfig").Children)
+                                {
+                                    string groupId = group.Key;
+                                    if (group.HasChild("studentIds"))
+                                    {
+                                        foreach (DataSnapshot sid in group.Child("studentIds").Children)
+                                        {
+                                            if (sid.Value.ToString() == uid)
+                                            {
+                                                // √âtudiant trouv√© dans ce groupe, v√©rifier operationsAllowed
+                                                string operationsAllowed = group.Child("config/operationsAllowed").Value.ToString().ToLower();
+                                                if (operationsAllowed.Contains("multiplication"))
+                                                {
+                                                    isMultiplication = true;
+                                                    maxNumberRange = int.Parse(group.Child("config/maxNumberRange").Value.ToString());
+                                                    numOperations = int.Parse(group.Child("config/numOperations").Value.ToString());
+                                                    requiredCorrectAnswersMinimumPercent = float.Parse(group.Child("config/requiredCorrectAnswersMinimumPercent").Value.ToString());
+                                                    Debug.Log($"GroupsConfig trouv√© pour test {testId}, groupe {groupId}, √©tudiant {uid} : maxNumberRange={maxNumberRange}, numOperations={numOperations}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Si groupsConfig n'a pas donn√© de r√©sultat, v√©rifier gradeConfig
+                            if (!isMultiplication && verticalOpsConfig.HasChild("gradeConfig/config/operationsAllowed"))
+                            {
+                                string operationsAllowed = verticalOpsConfig.Child("gradeConfig/config/operationsAllowed").Value.ToString().ToLower();
+                                if (operationsAllowed.Contains("multiplication"))
+                                {
+                                    isMultiplication = true;
+                                    maxNumberRange = int.Parse(verticalOpsConfig.Child("gradeConfig/config/maxNumberRange").Value.ToString());
+                                    numOperations = int.Parse(verticalOpsConfig.Child("gradeConfig/config/numOperations").Value.ToString());
+                                    requiredCorrectAnswersMinimumPercent = float.Parse(verticalOpsConfig.Child("gradeConfig/config/requiredCorrectAnswersMinimumPercent").Value.ToString());
+                                    Debug.Log($"GradeConfig trouv√© pour test {testId} : maxNumberRange={maxNumberRange}, numOperations={numOperations}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+                                }
+                            }
+
+                            if (isMultiplication)
+                            {
+                                hasValidTest = true;
+                                // Cr√©er ou acc√©der au GameManager et d√©finir les param√®tres
+                                if (GameManager.Instance == null)
+                                {
+                                    GameObject gmObject = new GameObject("GameManager");
+                                    gmObject.AddComponent<GameManager>();
+                                    Debug.LogWarning("GameManager cr√©√© dynamiquement dans QRAuthenticator.");
+                                }
+                                GameManager.Instance.SetTestParameters(maxNumberRange, numOperations, requiredCorrectAnswersMinimumPercent, uid);
+                                break;
+                            }
+                        }
+
+                        if (hasValidTest)
+                        {
+                            statusText.text = "Test trouv√© ! Chargement de VerticalOperationScene...";
+                            Debug.Log("Chargement de VerticalOperationScene avec les param√®tres d√©finis.");
+                            UnityEngine.SceneManagement.SceneManager.LoadScene("VerticalOperationsScene");
+                        }
+                        else
+                        {
+                            statusText.text = "Aucun test de multiplication verticale trouv√©.";
+                            Debug.LogError("Aucun test valide trouv√© pour l'√©tudiant.");
+                        }
+                    }
+                    else
+                    {
+                        statusText.text = "√âchec du chargement des tests.";
+                        Debug.LogError("√âchec de la r√©cup√©ration des tests depuis Firebase.");
+                    }
+                });
+            }
+            else
+            {
+                statusText.text = "√âchec du chargement des donn√©es du joueur.";
+                Debug.LogError($"Utilisateur {uid} non trouv√© dans Firebase.");
+            }
+        });
+    }
 }

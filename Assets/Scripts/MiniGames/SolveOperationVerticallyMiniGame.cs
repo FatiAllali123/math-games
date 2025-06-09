@@ -1,48 +1,105 @@
 using UnityEngine;
-using TMPro;
 using UnityEngine.UI;
+using TMPro;
 using System.Collections.Generic;
 
 public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
 {
     [Header("Références UI")]
-    public Transform operationZone;           // Panel parent des DigitSlots
-    public GameObject digitSlotPrefab;        // Prefab DigitSlotCanvas (doit contenir DigitSlot script)
-    public GameObject plusSignPrefab;         // Prefab contenant le signe "+" (TextMeshProUGUI)
-    public GameObject equalsSignPrefab;       // Prefab contenant le signe "=" (TextMeshProUGUI)
-    public TextMeshProUGUI topNumberText;     // Premier nombre (ex: 23)
-    public TextMeshProUGUI bottomNumberText;  // Deuxième nombre avec signe (ex: avec "× 4")
-    public TextMeshProUGUI resultText;        // Texte pour afficher si la réponse est correcte ou non
+    public Transform operationZone;
+    public GameObject digitSlotPrefab;
+    public GameObject plusSignPrefab;
+    public GameObject equalsSignPrefab;
+    public TextMeshProUGUI topNumberText;
+    public TextMeshProUGUI bottomNumberText;
+    public TextMeshProUGUI resultText;
+    public Button nextButton; // Référence au bouton "Next"
 
     [Header("Références Barre de Progression")]
-    public Image progressBarBackground;       // Image de fond de la barre de progression
-    public Image progressBarFill;             // Image de remplissage de la barre de progression
-    public TextMeshProUGUI progressText;      // Texte pour afficher le pourcentage (ex: "20%")
+    public Image progressBarBackground;
+    public Image progressBarFill;
+    public TextMeshProUGUI progressText;
+    public RectTransform progressStar;
+    private RectTransform progressBarRect;
+
+    [Header("Paramètres d'Animation")]
+    public float shineDuration = 0.5f;
+    public float shineScale = 1.5f;
+    public Color shineColor = new Color(1f, 1f, 0.5f, 1f);
+    private Vector3 originalStarScale;
 
     [Header("Références Audio")]
-    public AudioSource correctSound;          // AudioSource pour le son de résultat correct
-    public AudioSource incorrectSound;        // AudioSource pour le son de résultat incorrect
-    public AudioSource backgroundMusic;       // AudioSource pour la musique de fond
+    public AudioSource correctSound;
+    public AudioSource incorrectSound;
+    public AudioSource backgroundMusic;
 
     private int number1;
     private int number2;
     private string result;
-    private string[] intermediateResults;     // Résultats intermédiaires pour chaque étape
+    private string[] intermediateResults;
 
-    // Variables pour la boucle des 5 opérations
-    private int currentOperationCount = 0;    // Compteur d'opérations effectuées
-    private const int totalOperations = 5;    // Nombre total d'opérations à résoudre
+    // Variables pour la boucle des opérations
+    private int currentOperationCount = 0;
+    private int totalOperations;
+    private int correctAnswers = 0;
+    private int maxNumberRange;
+    private float requiredCorrectAnswersMinimumPercent;
+    private bool isGameOver = false; // Indique si le jeu est terminé
 
     void Start()
     {
+        // Récupérer les paramètres depuis GameManager
+        if (GameManager.Instance != null)
+        {
+            maxNumberRange = GameManager.Instance.MaxNumberRange;
+            totalOperations = GameManager.Instance.NumOperations;
+            requiredCorrectAnswersMinimumPercent = GameManager.Instance.RequiredCorrectAnswersMinimumPercent;
+            Debug.Log($"Paramètres récupérés dans SolveOperationVerticallyMiniGame : maxNumberRange={maxNumberRange}, totalOperations={totalOperations}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+        }
+        else
+        {
+            Debug.LogWarning("GameManager.Instance est null. Utilisation des valeurs par défaut.");
+            maxNumberRange = 3;
+            totalOperations = 5;
+            requiredCorrectAnswersMinimumPercent = 75f;
+        }
+
         // Initialiser la barre de progression
+        if (progressBarFill != null)
+        {
+            progressBarRect = progressBarFill.GetComponent<RectTransform>();
+        }
+        else
+        {
+            Debug.LogWarning("progressBarFill non assigné dans l'Inspector !");
+        }
+
+        if (progressStar != null)
+        {
+            originalStarScale = progressStar.localScale;
+        }
+        else
+        {
+            Debug.LogWarning("progressStar non assigné dans l'Inspector !");
+        }
+
+        // Vérifier que le bouton Next est assigné
+        if (nextButton != null)
+        {
+            nextButton.interactable = true; // Actif au départ pour vérifier la première réponse
+        }
+        else
+        {
+            Debug.LogWarning("nextButton non assigné dans l'Inspector !");
+        }
+
         UpdateProgressBar();
-        // Générer la première opération
         GenerateOperation();
+
         if (backgroundMusic != null)
         {
-            backgroundMusic.loop = true; // S'assurer que la musique boucle
-            backgroundMusic.Play();      // Lancer la musique
+            backgroundMusic.loop = true;
+            backgroundMusic.Play();
         }
         else
         {
@@ -50,70 +107,116 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
         }
     }
 
-    /// <summary>
-    /// Met à jour la barre de progression en fonction du nombre d'opérations effectuées
-    /// </summary>
     private void UpdateProgressBar()
     {
-        if (progressBarFill != null && progressText != null)
+        if (isGameOver)
+        {
+            Debug.Log("Jeu terminé, la barre de progression ne se met plus à jour.");
+            return;
+        }
+
+        if (progressBarFill != null && progressText != null && progressBarRect != null && progressStar != null)
         {
             float progress = (float)currentOperationCount / totalOperations;
-            progressBarFill.fillAmount = progress; // Remplissage de la barre (de 0 à 1)
-            progressText.text = $"{(progress * 100):F0}%"; // Afficher le pourcentage
+            progressBarFill.fillAmount = progress;
+            progressText.text = $"{(progress * 100):F0}%";
+
+            float barWidth = progressBarRect.rect.width;
+            float newX = -barWidth / 2f + (progress * barWidth);
+            progressStar.anchoredPosition = new Vector2(newX, progressStar.anchoredPosition.y);
+
+            StartCoroutine(ShineAnimationCoroutine());
         }
         else
         {
-            Debug.LogWarning("progressBarFill ou progressText non assigné dans l'Inspector !");
+            Debug.LogWarning("progressBarFill, progressText, progressBarRect ou progressStar non assigné dans l'Inspector !");
         }
     }
 
-    /// <summary>
-    /// Génère l'opération et crée les cases avec un point pour le résultat
-    /// </summary>
+    private System.Collections.IEnumerator ShineAnimationCoroutine()
+    {
+        Image starImage = progressStar.GetComponent<Image>();
+        if (starImage == null)
+        {
+            Debug.LogWarning("Aucun composant Image trouvé sur progressStar !");
+            yield break;
+        }
+
+        progressStar.localScale = originalStarScale;
+        starImage.color = Color.white;
+
+        float elapsed = 0f;
+        float halfDuration = shineDuration / 2f;
+
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / halfDuration;
+            progressStar.localScale = Vector3.Lerp(originalStarScale, originalStarScale * shineScale, t);
+            starImage.color = Color.Lerp(Color.white, shineColor, t);
+            yield return null;
+        }
+
+        progressStar.localScale = originalStarScale * shineScale;
+        starImage.color = shineColor;
+
+        elapsed = 0f;
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / halfDuration;
+            progressStar.localScale = Vector3.Lerp(originalStarScale * shineScale, originalStarScale, t);
+            starImage.color = Color.Lerp(shineColor, Color.white, t);
+            yield return null;
+        }
+
+        progressStar.localScale = originalStarScale;
+        starImage.color = Color.white;
+    }
+
     public void GenerateOperation()
     {
-        // Vérifier si toutes les opérations sont terminées
-        if (currentOperationCount >= totalOperations)
+        if (isGameOver)
         {
-            resultText.text = "Jeu terminé ! Toutes les opérations sont complétées !";
-            resultText.color = Color.blue;
-            Debug.Log("Jeu terminé !");
+            Debug.Log("Jeu terminé, aucune nouvelle opération générée.");
             return;
         }
 
-        // Générer des nombres aléatoires
-        number1 = Random.Range(10, 100);   // 2 chiffres
-        number2 = Random.Range(10, 100);   // Jusqu'à 2 chiffres
+        if (currentOperationCount >= totalOperations)
+        {
+            isGameOver = true;
+            float successPercent = ((float)correctAnswers / totalOperations) * 100f;
+            bool isSuccess = successPercent >= requiredCorrectAnswersMinimumPercent;
+            resultText.text = isSuccess ? $"Jeu terminé ! Succès ({successPercent:F0}%)" : $"Jeu terminé ! Échec ({successPercent:F0}% < {requiredCorrectAnswersMinimumPercent}%)";
+            resultText.color = isSuccess ? Color.green : Color.red;
+            Debug.Log(resultText.text);
+
+            if (nextButton != null)
+            {
+                nextButton.interactable = false; // Désactiver le bouton à la fin
+                Debug.Log("Bouton Next désactivé car le jeu est terminé.");
+            }
+            return;
+        }
+
+        number1 = Random.Range(10, (int)Mathf.Pow(10, maxNumberRange));
+        number2 = Random.Range(10, (int)Mathf.Pow(10, maxNumberRange));
         result = (number1 * number2).ToString();
 
-        // Afficher les nombres, alignés à droite
         topNumberText.text = number1.ToString().PadLeft(result.Length, ' ');
         bottomNumberText.text = "× " + number2.ToString().PadLeft(result.Length - 2, ' ');
 
-        // Vérifier si operationZone, plusSignPrefab et equalsSignPrefab sont assignés
-        if (operationZone == null)
+        if (operationZone == null || plusSignPrefab == null || equalsSignPrefab == null)
         {
-            Debug.LogError("operationZone n'est pas assigné dans l'Inspector !");
-            return;
-        }
-        if (plusSignPrefab == null)
-        {
-            Debug.LogError("plusSignPrefab n'est pas assigné dans l'Inspector !");
-            return;
-        }
-        if (equalsSignPrefab == null)
-        {
-            Debug.LogError("equalsSignPrefab n'est pas assigné dans l'Inspector !");
+            Debug.LogError("operationZone, plusSignPrefab ou equalsSignPrefab non assigné dans l'Inspector !");
             return;
         }
 
-        // Nettoyer les anciens slots et zones
         foreach (Transform child in operationZone)
         {
             Destroy(child.gameObject);
         }
 
-        // Désactiver tout composant de disposition qui pourrait interférer
         if (operationZone.GetComponent<HorizontalLayoutGroup>() != null)
         {
             Destroy(operationZone.GetComponent<HorizontalLayoutGroup>());
@@ -123,21 +226,18 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             Destroy(operationZone.GetComponent<VerticalLayoutGroup>());
         }
 
-        // Ajuster le RectTransform de la operationZone pour un alignement vertical
         RectTransform operationZoneRect = operationZone.GetComponent<RectTransform>();
         if (operationZoneRect != null)
         {
-            operationZoneRect.anchorMin = new Vector2(0.5f, 1f); // Ancre en haut au centre
+            operationZoneRect.anchorMin = new Vector2(0.5f, 1f);
             operationZoneRect.anchorMax = new Vector2(0.5f, 1f);
-            operationZoneRect.pivot = new Vector2(0.5f, 1f); // Pivot en haut au centre
+            operationZoneRect.pivot = new Vector2(0.5f, 1f);
             operationZoneRect.anchoredPosition = Vector2.zero;
-            operationZoneRect.sizeDelta = new Vector2(result.Length * 160, 500); // Largeur dynamique, hauteur suffisante
+            operationZoneRect.sizeDelta = new Vector2(result.Length * 160, 500);
         }
 
-        // Calculer les résultats intermédiaires pour la multiplication verticale
         CalculateIntermediateResults();
 
-        // Créer les zones pour les étapes intermédiaires
         float verticalOffset = 0f;
         for (int i = 0; i < intermediateResults.Length; i++)
         {
@@ -147,18 +247,16 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             RectTransform zoneRect = intermediateZoneGO.AddComponent<RectTransform>();
             if (zoneRect != null)
             {
-                zoneRect.anchorMin = new Vector2(0.5f, 1f); // Ancre en haut au centre
+                zoneRect.anchorMin = new Vector2(0.5f, 1f);
                 zoneRect.anchorMax = new Vector2(0.5f, 1f);
                 zoneRect.pivot = new Vector2(0.5f, 1f);
-                zoneRect.anchoredPosition = new Vector2(0, verticalOffset); // Position verticale
-                zoneRect.sizeDelta = new Vector2(result.Length * 160, 150); // Largeur selon le résultat final
-                verticalOffset -= 120f; // Espacement vertical réduit pour rapprocher les lignes
+                zoneRect.anchoredPosition = new Vector2(0, verticalOffset);
+                zoneRect.sizeDelta = new Vector2(result.Length * 160, 150);
+                verticalOffset -= 120f;
             }
 
-            // Générer les DigitSlots pour cette étape intermédiaire
             GenerateDigitSlots(intermediateZoneGO.transform, intermediateResults[i], i);
 
-            // Instancier le prefab du signe "+" entre les étapes intermédiaires (sauf après la dernière)
             if (i < intermediateResults.Length - 1)
             {
                 GameObject plusSignGO = Instantiate(plusSignPrefab, operationZone);
@@ -167,11 +265,11 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
                 RectTransform plusSignRect = plusSignGO.GetComponent<RectTransform>();
                 if (plusSignRect != null)
                 {
-                    plusSignRect.anchorMin = new Vector2(0.5f, 1f); // Ancre au centre
+                    plusSignRect.anchorMin = new Vector2(0.5f, 1f);
                     plusSignRect.anchorMax = new Vector2(0.5f, 1f);
-                    plusSignRect.pivot = new Vector2(0.5f, 0.5f); // Pivot au centre
-                    float xOffset = -((result.Length * 160) / 2f) - 50f; // Juste à gauche des cases
-                    float yOffset = verticalOffset - 60f; // Centré entre les deux lignes
+                    plusSignRect.pivot = new Vector2(0.5f, 0.5f);
+                    float xOffset = -((result.Length * 160) / 2f) - 50f;
+                    float yOffset = verticalOffset - 60f;
                     plusSignRect.anchoredPosition = new Vector2(xOffset, yOffset);
                     plusSignRect.sizeDelta = new Vector2(50, 50);
                     TextMeshProUGUI plusText = plusSignGO.GetComponent<TextMeshProUGUI>();
@@ -181,11 +279,10 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
                         plusText.color = new Color(0.2f, 0.2f, 0.2f);
                     }
                 }
-                verticalOffset -= 40f; // Espacement supplémentaire après le signe +
+                verticalOffset -= 40f;
             }
         }
 
-        // Ajouter le LineSeparator après les étapes intermédiaires
         GameObject separatorGO = new GameObject("LineSeparator");
         separatorGO.transform.SetParent(operationZone, false);
         RectTransform separatorRect = separatorGO.AddComponent<RectTransform>();
@@ -194,14 +291,13 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             separatorRect.anchorMin = new Vector2(0.5f, 1f);
             separatorRect.anchorMax = new Vector2(0.5f, 1f);
             separatorRect.pivot = new Vector2(0.5f, 1f);
-            separatorRect.anchoredPosition = new Vector2(0, verticalOffset - 40f); // Décalé plus bas
-            separatorRect.sizeDelta = new Vector2(result.Length * 160, 2); // Largeur dynamique
+            separatorRect.anchoredPosition = new Vector2(0, verticalOffset - 40f);
+            separatorRect.sizeDelta = new Vector2(result.Length * 160, 2);
             Image separatorImage = separatorGO.AddComponent<Image>();
-            separatorImage.color = Color.black; // Couleur du séparateur
+            separatorImage.color = Color.black;
             verticalOffset -= 40f;
         }
 
-        // Créer la zone pour le résultat final
         GameObject finalZoneGO = new GameObject("FinalResultZone");
         finalZoneGO.transform.SetParent(operationZone, false);
         RectTransform finalZoneRect = finalZoneGO.AddComponent<RectTransform>();
@@ -210,24 +306,22 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             finalZoneRect.anchorMin = new Vector2(0.5f, 1f);
             finalZoneRect.anchorMax = new Vector2(0.5f, 1f);
             finalZoneRect.pivot = new Vector2(0.5f, 1f);
-            finalZoneRect.anchoredPosition = new Vector2(0, verticalOffset - 20f); // Décalé plus bas
-            finalZoneRect.sizeDelta = new Vector2(result.Length * 160, 150); // Largeur selon les DigitSlots
+            finalZoneRect.anchoredPosition = new Vector2(0, verticalOffset - 20f);
+            finalZoneRect.sizeDelta = new Vector2(result.Length * 160, 150);
         }
 
-        // Générer les DigitSlots pour le résultat final
-        GenerateDigitSlots(finalZoneGO.transform, result, -1); // -1 indique pas d'étape intermédiaire
+        GenerateDigitSlots(finalZoneGO.transform, result, -1);
 
-        // Ajouter le signe "=" en bas de tout, après la FinalResultZone
         GameObject equalsSignGO = Instantiate(equalsSignPrefab, operationZone);
         equalsSignGO.name = "EqualsSign";
         RectTransform equalsSignRect = equalsSignGO.GetComponent<RectTransform>();
         if (equalsSignRect != null)
         {
-            equalsSignRect.anchorMin = new Vector2(0.5f, 1f); // Ancre au centre
+            equalsSignRect.anchorMin = new Vector2(0.5f, 1f);
             equalsSignRect.anchorMax = new Vector2(0.5f, 1f);
-            equalsSignRect.pivot = new Vector2(0.5f, 0.5f); // Pivot au centre
-            float xOffset = -((result.Length * 160) / 2f) - 50f; // Juste à gauche des cases
-            float yOffset = verticalOffset - 60f; // En bas, après la FinalResultZone
+            equalsSignRect.pivot = new Vector2(0.5f, 0.5f);
+            float xOffset = -((result.Length * 160) / 2f) - 50f;
+            float yOffset = verticalOffset - 60f;
             equalsSignRect.anchoredPosition = new Vector2(xOffset, yOffset);
             equalsSignRect.sizeDelta = new Vector2(50, 50);
             TextMeshProUGUI equalsText = equalsSignGO.GetComponent<TextMeshProUGUI>();
@@ -237,17 +331,12 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
                 equalsText.color = new Color(0.2f, 0.2f, 0.2f);
             }
         }
-        verticalOffset -= 40f; // Espacement supplémentaire après le signe =
     }
 
-    /// <summary>
-    /// Génère les DigitSlots pour une zone donnée
-    /// </summary>
     private void GenerateDigitSlots(Transform parent, string targetResult, int stepIndex)
     {
-        // Utiliser la longueur maximale pour toutes les étapes
-        int slotCount = result.Length; // Alignement avec le résultat final
-        int shift = (stepIndex > 0) ? stepIndex : 0; // Décalage pour les étapes après la première
+        int slotCount = result.Length;
+        int shift = (stepIndex > 0) ? stepIndex : 0;
 
         for (int i = 0; i < slotCount; i++)
         {
@@ -257,27 +346,26 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             RectTransform slotRect = slotGO.GetComponent<RectTransform>();
             if (slotRect != null)
             {
-                slotRect.anchorMin = new Vector2(0, 0.5f); // Ancre au centre gauche
+                slotRect.anchorMin = new Vector2(0, 0.5f);
                 slotRect.anchorMax = new Vector2(0, 0.5f);
                 slotRect.pivot = new Vector2(0, 0.5f);
-                slotRect.sizeDelta = new Vector2(150, 150); // Taille fixe
-                slotRect.localScale = Vector3.one; // Échelle à 1
-                slotRect.anchoredPosition = new Vector2((slotCount - 1 - i) * 160, 0); // Alignement à droite
+                slotRect.sizeDelta = new Vector2(150, 150);
+                slotRect.localScale = Vector3.one;
+                slotRect.anchoredPosition = new Vector2((slotCount - 1 - i) * 160, 0);
             }
 
             DigitSlot digitSlot = slotGO.GetComponent<DigitSlot>();
             if (digitSlot != null)
             {
-                // À partir de la deuxième étape, la dernière case (à droite, index 0) doit avoir un point
                 if (stepIndex > 0 && i == 0)
                 {
                     digitSlot.slotText.text = ".";
-                    digitSlot.slotText.color = Color.gray; // Différencier visuellement
-                    digitSlot.GetComponent<Image>().raycastTarget = false; // Désactiver l'interaction
+                    digitSlot.slotText.color = Color.gray;
+                    digitSlot.GetComponent<Image>().raycastTarget = false;
                 }
                 else
                 {
-                    digitSlot.slotText.text = ""; // Initialise vide pour drag-and-drop
+                    digitSlot.slotText.text = "";
                 }
             }
             else
@@ -287,36 +375,27 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
         }
     }
 
-    /// <summary>
-    /// Calcule les résultats intermédiaires pour la multiplication verticale
-    /// </summary>
     private void CalculateIntermediateResults()
     {
         string num2Str = number2.ToString();
         intermediateResults = new string[num2Str.Length];
 
-        // Remplir dans l'ordre inverse pour correspondre à l'affichage (dernier chiffre en premier)
         for (int i = 0; i < num2Str.Length; i++)
         {
-            int digitIndex = num2Str.Length - 1 - i; // Inverser l'ordre des chiffres
+            int digitIndex = num2Str.Length - 1 - i;
             int digit = int.Parse(num2Str[digitIndex].ToString());
             int partialProduct = number1 * digit * (int)Mathf.Pow(10, i);
-            intermediateResults[i] = partialProduct.ToString().PadLeft(result.Length, '0'); // Aligné à la longueur max
-            Debug.Log($"Intermediate Result {i}: {intermediateResults[i]} (digit {digit} at position {digitIndex})");
+            intermediateResults[i] = partialProduct.ToString().PadLeft(result.Length, '0');
+            Debug.Log($"Intermediate Result {i}: {intermediateResults[i]} (digit {digit} at position {i})");
         }
     }
 
-    /// <summary>
-    /// Vérifie si la réponse utilisateur est correcte et met à jour l'affichage
-    /// </summary>
-    [ContextMenu("Vérifier la réponse")]
     public bool IsAnswerCorrect()
     {
         string userAnswer = "";
         string[] userIntermediateResults = new string[intermediateResults.Length];
-
-        // Vérifier les étapes intermédiaires
         bool allStepsCorrect = true;
+
         for (int i = 0; i < intermediateResults.Length; i++)
         {
             Transform intermediateZone = operationZone.Find("IntermediateZone_" + i);
@@ -330,29 +409,27 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
                     if (digitSlot != null)
                     {
                         string digitText = digitSlot.slotText.text;
-                        // Gérer le cas spécial pour la dernière case dans les étapes intermédiaires
                         if (i > 0 && slotIndex == 0 && digitText == ".")
                         {
-                            digits.Add("0"); // Traiter le point comme 0
-                        }
+                            digits.Add("0");
+                            }
                         else
-                        {
-                            // Traiter les slots vides ou avec "." comme 0
-                            digits.Add((digitText == "." || string.IsNullOrEmpty(digitText)) ? "0" : digitText);
-                        }
+                            {
+                            digits.Add((string.IsNullOrEmpty(digitText) || digitText == ".") ? "0" : digitText);
+                            }
                         slotIndex++;
                     }
                 }
 
-                // Inverser les chiffres pour lire de gauche à droite
                 digits.Reverse();
                 userIntermediateResults[i] = string.Join("", digits);
 
-                // Supprimer les zéros initiaux et finaux pour comparer
                 string expectedStep = intermediateResults[i].TrimStart('0').TrimEnd('0');
                 string userStep = userIntermediateResults[i].TrimStart('0').TrimEnd('0');
-                if (string.IsNullOrEmpty(expectedStep)) expectedStep = "0";
-                if (string.IsNullOrEmpty(userStep)) userStep = "0";
+                if (string.IsNullOrEmpty(expectedStep))
+                    expectedStep = "0";
+                if (string.IsNullOrEmpty(userStep))
+                    userStep = "0";
 
                 Debug.Log($"Étape {i} - Chiffres collectés : {string.Join(", ", digits)}");
                 Debug.Log($"Étape {i} - Réponse utilisateur : {userIntermediateResults[i]} / Résultat attendu : {intermediateResults[i]}");
@@ -371,7 +448,6 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             }
         }
 
-        // Vérifier l'addition des étapes intermédiaires
         int sum = 0;
         for (int i = 0; i < userIntermediateResults.Length; i++)
         {
@@ -382,7 +458,6 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             }
         }
 
-        // Vérifier la zone finale
         Transform finalZone = operationZone.Find("FinalResultZone");
         if (finalZone != null)
         {
@@ -393,10 +468,9 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
                 if (digitSlot != null)
                 {
                     string digitText = digitSlot.slotText.text;
-                    digits.Add((digitText == "." || string.IsNullOrEmpty(digitText)) ? "0" : digitText);
+                    digits.Add((string.IsNullOrEmpty(digitText) || digitText == ".") ? "0" : digitText);
                 }
             }
-            // Inverser les chiffres pour lire de gauche à droite
             digits.Reverse();
             userAnswer = string.Join("", digits);
             Debug.Log($"Résultat final - Chiffres collectés : {string.Join(", ", digits)}");
@@ -406,19 +480,25 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             Debug.LogError("FinalResultZone non trouvé !");
         }
 
-        // Supprimer les zéros initiaux pour le résultat final
         string trimmedUserAnswer = userAnswer.TrimStart('0');
         string trimmedResult = result.TrimStart('0');
-        if (string.IsNullOrEmpty(trimmedUserAnswer)) trimmedUserAnswer = "0";
-        if (string.IsNullOrEmpty(trimmedResult)) trimmedResult = "0";
+        if (string.IsNullOrEmpty(trimmedUserAnswer))
+            trimmedUserAnswer = "0";
+        if (string.IsNullOrEmpty(trimmedResult))
+            trimmedResult = "0";
 
         bool finalResultCorrect = trimmedUserAnswer == trimmedResult;
         bool isCorrect = allStepsCorrect && finalResultCorrect;
 
-        // Met à jour le texte d'affichage
+        if (isCorrect)
+        {
+            correctAnswers++;
+            playerCorrectAnswers = correctAnswers; // Mettre à jour pour la classe parent
+        }
+
         if (resultText != null)
         {
-            resultText.text = isCorrect ? "Correct !" : "Incorrect";
+            resultText.text = isCorrect ? "Correct !" : "Incorrect !";
             resultText.color = isCorrect ? Color.green : Color.red;
         }
         else
@@ -426,19 +506,14 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
             Debug.LogWarning("resultText n'est pas assigné dans l'Inspector !");
         }
 
-        // Jouer le son selon le résultat
         if (isCorrect && correctSound != null)
         {
             correctSound.Play();
         }
         else if (isCorrect && correctSound == null)
-        {
             Debug.LogWarning("correctSound n'est pas assigné dans l'Inspector !");
-        }
         else if (!isCorrect && incorrectSound != null)
-        {
             incorrectSound.Play();
-        }
         else if (!isCorrect && incorrectSound == null)
         {
             Debug.LogWarning("incorrectSound n'est pas assigné dans l'Inspector !");
@@ -447,21 +522,24 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
         return isCorrect;
     }
 
-    /// <summary>
-    /// Fonction wrapper pour appeler IsAnswerCorrect depuis l'UI et passer à l'opération suivante
-    /// </summary>
     public void CheckAnswer()
     {
-        // Vérifier la réponse
+        if (isGameOver)
+        {
+            Debug.Log("Jeu terminé, aucune vérification possible.");
+            return;
+        }
+
         bool isCorrect = IsAnswerCorrect();
 
-        // Incrémenter le compteur d'opérations, qu'elles soient correctes ou non
         currentOperationCount++;
-
-        // Mettre à jour la barre de progression
         UpdateProgressBar();
-
-        // Générer une nouvelle opération ou terminer le jeu
         GenerateOperation();
+    }
+
+    public override bool CheckSuccess(int requiredCorrectAnswers)
+    {
+        float successPercent = ((float)correctAnswers / totalOperations) * 100f;
+        return successPercent >= requiredCorrectAnswersMinimumPercent;
     }
 }

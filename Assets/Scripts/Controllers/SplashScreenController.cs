@@ -1,38 +1,38 @@
 using UnityEngine;
-using UnityEngine.SceneManagement; // pour changer de scène 
+using UnityEngine.SceneManagement; // pour changer de scÃ¨ne 
 using Firebase.Auth;
 using Firebase.Extensions;
 using Firebase;
 
 
-public class SplashScreenController : MonoBehaviour //hérite de MonoBehaviour, donc je peux l’attacher à un objet dans Unity
+public class SplashScreenController : MonoBehaviour //hÃ©rite de MonoBehaviour, donc je peux lâ€™attacher Ã  un objet dans Unity
 {
-    public string firebasePlayerId; // stocker l’ID du joueur connecté avec Firebase.
-    [SerializeField] private FirebasePlayerDataManager firebasePlayerDataManager; // lien vers un autre script qui s’occupe de charger les données du joueur , SerializeField permet de le voir dans l'inspecteur Unity, même s’il est private
-    // des éléments visuels (panneau de login, texte de chargement).
+    public string firebasePlayerId; // stocker lâ€™ID du joueur connectÃ© avec Firebase.
+    [SerializeField] private FirebasePlayerDataManager firebasePlayerDataManager; // lien vers un autre script qui sâ€™occupe de charger les donnÃ©es du joueur , SerializeField permet de le voir dans l'inspecteur Unity, mÃªme sâ€™il est private
+    // des Ã©lÃ©ments visuels (panneau de login, texte de chargement).
     [SerializeField] private GameObject authenticationPanel; // panneau login  
     [SerializeField] private GameObject loadingText; // texte loading 
 
     void Start()
     {
-        // FirebaseInitializer est un script singleton qui gère la configuration Firebase.
+        // FirebaseInitializer est un script singleton qui gÃ¨re la configuration Firebase.
         FirebaseInitializer.Instance.InitializeFirebase(() =>
         {
-            if (FirebaseInitializer.Instance.IsFirebaseInitialized) // si Firebase est bien initialisé.
+            if (FirebaseInitializer.Instance.IsFirebaseInitialized) // si Firebase est bien initialisÃ©.
             {
-                FirebaseUser currentUser = FirebaseInitializer.Instance.Auth.CurrentUser; // On récupère l’utilisateur actuellement connecté (ou null s’il n’y a personne)
+                FirebaseUser currentUser = FirebaseInitializer.Instance.Auth.CurrentUser; // On rÃ©cupÃ¨re lâ€™utilisateur actuellement connectÃ© (ou null sâ€™il nâ€™y a personne)
 
                 if (currentUser != null)
                 {
                     string firebasePlayerId = currentUser.UserId; //prend ID Firebase du  user 
                     Debug.Log("User already signed in: " + firebasePlayerId); // message console 
 
-                    firebasePlayerDataManager.LoadPlayerData(firebasePlayerId, OnPlayerDataLoaded); // charge ses données enregistrées (nom, score, etc.) via firebasePlayerDataManager
+                    firebasePlayerDataManager.LoadPlayerData(firebasePlayerId, OnPlayerDataLoaded); // charge ses donnÃ©es enregistrÃ©es (nom, score, etc.) via firebasePlayerDataManager
                 }
                 else
                 {
                     Debug.Log("No user is currently signed in."); // message console 
-                    ShowAuthenticationWidget();// l’écran d'auth
+                    ShowAuthenticationWidget();// lâ€™Ã©cran d'auth
                 }
             }
         });
@@ -49,12 +49,12 @@ public class SplashScreenController : MonoBehaviour //hérite de MonoBehaviour, d
         else
         {
             Debug.Log("Player data load failed.");
-            ShowAuthenticationWidget(); // on remontre l’écran de login
+            ShowAuthenticationWidget(); // on remontre lâ€™Ã©cran de login
         }
     }
 
 
-    //  Afficher l’écran de login
+    //  Afficher lâ€™Ã©cran de login
     private void ShowAuthenticationWidget()
     {
         if (loadingText != null) // masque le texte de chargement si jamais il existe
