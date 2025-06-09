@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/WelcomeScene.unity
     guid: c0c4229b28d04c3409d6f7699e513456
+  - enabled: 1
+    path: Assets/Scenes/transition.unity
+    guid: 26930c0427bb7d048b5822ee0dede254
+  - enabled: 1
+    path: Assets/Scenes/testRoad.unity
+    guid: 8751fd8fc634b7241925f70fbfce1ce0
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: 9c6731f7965d7f5439e87b2c784bcdf0, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 2e752e94b781e76418bacd98c97864a5, type: 2}
