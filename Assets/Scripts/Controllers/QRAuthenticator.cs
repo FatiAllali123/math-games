@@ -1,36 +1,52 @@
 using Firebase.Database;
-using UnityEngine.UI;
+using UnityEngine.UI; // Pour manipuler les �l�ments UI
 using Firebase.Extensions;
 using System.Collections;
 using UnityEngine;
-using ZXing;
-using System.Linq;
+using ZXing; // Librairie pour lire les QR codes
+using System.Linq; // Permet d�utiliser des m�thodes LINQ (comme FirstOrDefault)
 using TMPro;
 using System;
 using System.Collections.Generic;
 
+
+
+
+
+
 public class QRAuthenticator : MonoBehaviour
 {
     public GameObject authenticationPanel;
-    public Text statusText;
-    public RawImage cameraFeed;
+    public Text statusText; // Texte affichant les messages (ex: "V�rification en cours...")
+    public RawImage cameraFeed;   // Pour afficher la cam�ra dans l'UI
+
+    private DatabaseReference dbReference;
+
+    private WebCamTexture backCameraTexture; //   lit la vid�o de la cam�ra.
+    private IBarcodeReader barcodeReader; // scanner le QR code � partir des images cam�ra.
+
+    // uv  est utilis� pour corriger l�orientation du feed cam�ra.
+    private readonly Rect uvRectFlipped = new(1f, 0f, -1f, 1f);
+    private readonly Rect uvRectNormal = new(0f, 0f, 1f, 1f);
+
+
+    //ajoute pour tester sans qr code 
     public TMP_InputField uidInput;
     public TMP_InputField pinInput;
     public Button manualLoginButton;
 
-    private DatabaseReference dbReference;
-    private WebCamTexture backCameraTexture;
-    private IBarcodeReader barcodeReader;
-    private readonly Rect uvRectFlipped = new(1f, 0f, -1f, 1f);
-    private readonly Rect uvRectNormal = new(0f, 0f, 1f, 1f);
+
 
     void Start()
     {
+
+
+        //  initialiser Firebase.
         FirebaseInitializer.Instance.InitializeFirebase(() =>
         {
             if (FirebaseInitializer.Instance.IsFirebaseInitialized)
             {
-                dbReference = FirebaseInitializer.Instance.DbReference;
+                dbReference = FirebaseInitializer.Instance.DbReference; // r�f�rence vers la base de donn�es.
                 statusText.text = "Checking camera permissions...";
 
                 if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
@@ -42,14 +58,21 @@ public class QRAuthenticator : MonoBehaviour
                     SetupCamera();
                 }
             }
+
+
         });
 
+        // ajoutee pour login auth mannuel 
         manualLoginButton.onClick.AddListener(() =>
         {
             string uid = uidInput.text.Trim();
             string pin = pinInput.text.Trim();
             AuthenticateUserManual(uid, pin);
         });
+
+
+
+
     }
 
     private IEnumerator RequestCameraPermission()
@@ -85,15 +108,18 @@ public class QRAuthenticator : MonoBehaviour
         }
 
         backCameraTexture = new WebCamTexture(backCamName, 960, 960);
+
         backCameraTexture.requestedFPS = 30;
         backCameraTexture.filterMode = FilterMode.Bilinear;
 
-        cameraFeed.texture = null;
+        cameraFeed.texture = null; // Clear first
         cameraFeed.texture = backCameraTexture;
         cameraFeed.material = null;
         cameraFeed.color = Color.white;
 
         backCameraTexture.Play();
+
+        // Wait until the camera starts updating
         StartCoroutine(AdjustCameraOrientation());
 
         barcodeReader = new BarcodeReader
@@ -109,6 +135,7 @@ public class QRAuthenticator : MonoBehaviour
 
         Debug.Log("Camera playing: " + backCameraTexture.isPlaying);
         Debug.Log("Camera frame size: " + backCameraTexture.width + "x" + backCameraTexture.height);
+
 
         StartCoroutine(ScanQRCode());
     }
@@ -128,8 +155,10 @@ public class QRAuthenticator : MonoBehaviour
         }
 
         cameraFeed.rectTransform.localEulerAngles = new Vector3(0, 0, angle);
+
         bool needsFlip = (backCameraTexture.videoVerticallyMirrored && !WebCamTexture.devices[0].isFrontFacing)
                       || (!backCameraTexture.videoVerticallyMirrored && WebCamTexture.devices[0].isFrontFacing);
+
         cameraFeed.uvRect = needsFlip ? uvRectFlipped : uvRectNormal;
     }
 
@@ -139,6 +168,7 @@ public class QRAuthenticator : MonoBehaviour
         {
             if (backCameraTexture.didUpdateThisFrame)
             {
+                // Convert the camera frame to a color array
                 Color32[] colors = backCameraTexture.GetPixels32();
                 var barcodeResult = barcodeReader.Decode(colors, backCameraTexture.width, backCameraTexture.height);
 
@@ -156,6 +186,8 @@ public class QRAuthenticator : MonoBehaviour
         }
     }
 
+
+    //Authentification d�un utilisateur via QR
     private void AuthenticateUser(string rawData)
     {
         statusText.text = "Verifying QR Code...";
@@ -163,6 +195,7 @@ public class QRAuthenticator : MonoBehaviour
         try
         {
             var qrPayload = JsonUtility.FromJson<PlayerQRPayload>(rawData);
+            // On lit les donn�es du QR code (qui doivent contenir un uid et un pin).
             if (qrPayload == null || string.IsNullOrEmpty(qrPayload.uid) || string.IsNullOrEmpty(qrPayload.pin))
             {
                 statusText.text = "Invalid QR Code format.";
@@ -172,12 +205,15 @@ public class QRAuthenticator : MonoBehaviour
             string uid = qrPayload.uid;
             string enteredPin = qrPayload.pin;
 
+
+            // on compare le pin avec celui stock� dans Firebase
             var pinRef = dbReference.Child("users").Child(uid).Child("password");
             pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
             {
                 if (task.IsCompleted && task.Result.Exists)
                 {
                     string storedPin = task.Result.Value.ToString();
+
                     if (enteredPin == storedPin)
                     {
                         statusText.text = "Authentication successful!";
@@ -199,8 +235,44 @@ public class QRAuthenticator : MonoBehaviour
             statusText.text = "QR Code data unreadable.";
         }
     }
-
+    /*
     private void LoadPlayerData(string uid)
+    {
+        statusText.text = "Welcome back! Loading your profile...";
+
+        DatabaseReference playerRef = dbReference.Child("users").Child(uid);
+        playerRef.GetValueAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompleted && task.Result.Exists)
+            {
+                string json = task.Result.GetRawJsonValue();
+
+                UserData userData = JsonUtility.FromJson<UserData>(json);
+
+                if (userData != null)
+                {
+                    // Stocker dans le singleton
+                    UserSession.Instance.SetUserData(userData);
+
+                    // Ensuite charger la sc�ne principale
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("WelcomeScene");
+                }
+                else
+                {
+                    statusText.text = "Error parsing user data.";
+                }
+            }
+            else
+            {
+                statusText.text = "Failed to load player data.";
+            }
+        });
+    }
+
+
+    */
+
+   private void LoadPlayerData(string uid)
     {
         statusText.text = "Welcome back! Loading your profile...";
 
@@ -213,14 +285,14 @@ public class QRAuthenticator : MonoBehaviour
 
                 try
                 {
-                    // Créer manuellement UserData à partir des données Firebase
+                    // Cr�er manuellement UserData � partir des donn�es Firebase
                     UserData userData = ParseUserDataFromSnapshot(task.Result);
 
                     if (userData != null)
                     {
                         Debug.Log("User data loaded successfully: " + userData.firstName + " " + userData.lastName);
 
-                        // Vérifier que UserSession existe
+                        // V�rifier que UserSession existe
                         if (UserSession.Instance == null)
                         {
                             Debug.LogError("UserSession.Instance is null! Make sure UserSession GameObject exists in the scene.");
@@ -231,7 +303,7 @@ public class QRAuthenticator : MonoBehaviour
                         // Stocker dans le singleton
                         UserSession.Instance.SetUserData(userData);
 
-                        // Attendre un frame avant de changer de scène
+                        // Attendre un frame avant de changer de sc�ne
                         StartCoroutine(LoadSceneDelayed());
                     }
                     else
@@ -258,6 +330,8 @@ public class QRAuthenticator : MonoBehaviour
         });
     }
 
+
+
     private UserData ParseUserDataFromSnapshot(DataSnapshot snapshot)
     {
         try
@@ -281,7 +355,7 @@ public class QRAuthenticator : MonoBehaviour
             }
             else
             {
-                userData.schoolGrade = GradeLevel.One; // Valeur par défaut
+                userData.schoolGrade = GradeLevel.One; // Valeur par d�faut
             }
 
             // Parse PlayerProfile
@@ -304,7 +378,7 @@ public class QRAuthenticator : MonoBehaviour
                 }
                 else
                 {
-                    userData.playerProfile.schoolGrade = GradeLevel.One; // Valeur par défaut
+                    userData.playerProfile.schoolGrade = GradeLevel.One; // Valeur par d�faut
                 }
 
                 // Parse skillsToImprove
@@ -372,12 +446,96 @@ public class QRAuthenticator : MonoBehaviour
         }
     }
 
+
     private IEnumerator LoadSceneDelayed()
     {
         yield return null;
         Debug.Log("Loading WelcomeScene...");
         UnityEngine.SceneManagement.SceneManager.LoadScene("WelcomeScene");
     }
+
+
+
+
+
+
+
+
+
+
+
+    // fct pour authentifier manellemnt sans qrcode 
+    /*
+    private void AuthenticateUserManual(string uid, string enteredPin)
+    {
+
+        try
+        {
+            if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(enteredPin))
+            {
+                statusText.text = "UID and PIN are required.";
+                return;
+            }
+
+            statusText.text = "Verifying credentials...";
+
+            var pinRef = dbReference.Child("users").Child(uid).Child("password");
+            pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
+            {
+
+
+                dbReference.Child("users").GetValueAsync().ContinueWith(task2 => {
+                    if (task2.IsCompleted && task2.Result.Exists)
+                    {
+                        DataSnapshot snapshot = task2.Result;
+                        foreach (var user in snapshot.Children)
+                        {
+                            string userId = user.Key;
+                            string role = user.Child("role").Value?.ToString();
+                            string pass = user.Child("password").Value?.ToString();
+
+                            Debug.Log("UID: " + userId + ", Nom: " + role + ", Email: " + pass);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("Impossible de lire les utilisateurs ou aucun utilisateur trouv�.");
+                    }
+                });
+
+
+                Debug.Log("R�f�rence Firebase: " + dbReference);
+                Debug.Log("UID entr�: '" + uid + "'");
+                Debug.Log("PIN entr�: '" + enteredPin + "'");
+                if (task.IsCompleted && task.Result.Exists)
+                {
+                    string storedPin = task.Result.Value.ToString();
+
+                    if (enteredPin == storedPin)
+                    {
+                        statusText.text = "Authentication successful!";
+                        LoadPlayerData(uid);
+                    }
+                    else
+                    {
+                        statusText.text = "Invalid PIN.";
+                    }
+                }
+                else
+                {
+                    statusText.text = "User not found.";
+                }
+            });
+
+        }
+
+        catch (Exception ex)
+        {
+            Debug.LogError("Exception dans le bloc Firebase: " + ex.Message + "\n" + ex.StackTrace);
+        }
+
+    }
+    */
 
     private void AuthenticateUserManual(string uid, string enteredPin)
     {
@@ -427,4 +585,5 @@ public class QRAuthenticator : MonoBehaviour
             statusText.text = "Authentication error.";
         }
     }
+
 }
