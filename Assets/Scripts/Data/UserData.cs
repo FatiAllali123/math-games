@@ -9,7 +9,11 @@ public class UserData
     public string lastName;
     public string birthday;
     public string gender;
-    public int schoolGrade;
+    public GradeLevel schoolGrade;
     public string linkedTeacherId;
     public PlayerProfile playerProfile;
+
+    // Ces propriétés doivent être au niveau UserData selon  structure Firebase
+    public Dictionary<string, GameProgressEntry> gameProgress;
+    public AchievementData achievements;
 }

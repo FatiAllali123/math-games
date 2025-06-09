@@ -7,6 +7,7 @@ using ZXing;
 using System.Linq;
 using TMPro;
 using System;
+using System.Collections.Generic;
 
 public class QRAuthenticator : MonoBehaviour
 {
@@ -199,6 +200,185 @@ public class QRAuthenticator : MonoBehaviour
         }
     }
 
+    private void LoadPlayerData(string uid)
+    {
+        statusText.text = "Welcome back! Loading your profile...";
+
+        DatabaseReference playerRef = dbReference.Child("users").Child(uid);
+        playerRef.GetValueAsync().ContinueWithOnMainThread(task =>
+        {
+            if (task.IsCompleted && task.Result.Exists)
+            {
+                Debug.Log("Raw Firebase data: " + task.Result.GetRawJsonValue());
+
+                try
+                {
+                    // Créer manuellement UserData à partir des données Firebase
+                    UserData userData = ParseUserDataFromSnapshot(task.Result);
+
+                    if (userData != null)
+                    {
+                        Debug.Log("User data loaded successfully: " + userData.firstName + " " + userData.lastName);
+
+                        // Vérifier que UserSession existe
+                        if (UserSession.Instance == null)
+                        {
+                            Debug.LogError("UserSession.Instance is null! Make sure UserSession GameObject exists in the scene.");
+                            statusText.text = "Session error. Please restart.";
+                            return;
+                        }
+
+                        // Stocker dans le singleton
+                        UserSession.Instance.SetUserData(userData);
+
+                        // Attendre un frame avant de changer de scène
+                        StartCoroutine(LoadSceneDelayed());
+                    }
+                    else
+                    {
+                        Debug.LogError("Failed to parse UserData from Firebase snapshot");
+                        statusText.text = "Error parsing user data.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Exception while parsing user data: " + ex.Message + "\n" + ex.StackTrace);
+                    statusText.text = "Error loading user data.";
+                }
+            }
+            else
+            {
+                Debug.LogError("Firebase task failed or data doesn't exist. Task status: " + task.Status);
+                if (task.Exception != null)
+                {
+                    Debug.LogError("Exception: " + task.Exception);
+                }
+                statusText.text = "Failed to load player data.";
+            }
+        });
+    }
+
+    private UserData ParseUserDataFromSnapshot(DataSnapshot snapshot)
+    {
+        try
+        {
+            UserData userData = new UserData
+            {
+                uid = snapshot.Child("uid").Value?.ToString(),
+                role = snapshot.Child("role").Value?.ToString(),
+                firstName = snapshot.Child("firstName").Value?.ToString(),
+                lastName = snapshot.Child("lastName").Value?.ToString(),
+                birthday = snapshot.Child("birthday").Value?.ToString(),
+                gender = snapshot.Child("gender").Value?.ToString(),
+                linkedTeacherId = snapshot.Child("linkedTeacherId").Value?.ToString()
+            };
+
+            // Parse schoolGrade (niveau UserData)
+            if (int.TryParse(snapshot.Child("schoolGrade").Value?.ToString(), out int schoolGradeInt) &&
+                Enum.IsDefined(typeof(GradeLevel), schoolGradeInt))
+            {
+                userData.schoolGrade = (GradeLevel)schoolGradeInt;
+            }
+            else
+            {
+                userData.schoolGrade = GradeLevel.One; // Valeur par défaut
+            }
+
+            // Parse PlayerProfile
+            if (snapshot.Child("playerProfile").Exists)
+            {
+                var profileSnapshot = snapshot.Child("playerProfile");
+                userData.playerProfile = new PlayerProfile
+                {
+                    playerName = profileSnapshot.Child("playerName").Value?.ToString(),
+                    coins = int.TryParse(profileSnapshot.Child("coins").Value?.ToString(), out int coins) ? coins : 0,
+                    mathLevel = int.TryParse(profileSnapshot.Child("mathLevel").Value?.ToString(), out int mathLevel) ? mathLevel : 0,
+                    questionsSolved = int.TryParse(profileSnapshot.Child("questionsSolved").Value?.ToString(), out int questionsSolved) ? questionsSolved : 0
+                };
+
+                // Parse schoolGrade dans PlayerProfile avec validation
+                if (int.TryParse(profileSnapshot.Child("schoolGrade").Value?.ToString(), out int profileSchoolGradeInt) &&
+                    Enum.IsDefined(typeof(GradeLevel), profileSchoolGradeInt))
+                {
+                    userData.playerProfile.schoolGrade = (GradeLevel)profileSchoolGradeInt;
+                }
+                else
+                {
+                    userData.playerProfile.schoolGrade = GradeLevel.One; // Valeur par défaut
+                }
+
+                // Parse skillsToImprove
+                if (profileSnapshot.Child("skillsToImprove").Exists)
+                {
+                    userData.playerProfile.skillsToImprove = new List<string>();
+                    foreach (var skill in profileSnapshot.Child("skillsToImprove").Children)
+                    {
+                        userData.playerProfile.skillsToImprove.Add(skill.Value.ToString());
+                    }
+                }
+
+                // Parse rewardProfile
+                if (profileSnapshot.Child("rewardProfile").Exists)
+                {
+                    var rewardSnapshot = profileSnapshot.Child("rewardProfile");
+                    userData.playerProfile.rewardProfile = new RewardData
+                    {
+                        score = int.TryParse(rewardSnapshot.Child("score").Value?.ToString(), out int score) ? score : 0,
+                        rank = int.TryParse(rewardSnapshot.Child("rank").Value?.ToString(), out int rank) ? rank : 0,
+                        iScore = int.TryParse(rewardSnapshot.Child("iScore").Value?.ToString(), out int iScore) ? iScore : 0,
+                        rewardCount = int.TryParse(rewardSnapshot.Child("rewardCount").Value?.ToString(), out int rewardCount) ? rewardCount : 0,
+                        positives = int.TryParse(rewardSnapshot.Child("positives").Value?.ToString(), out int positives) ? positives : 0,
+                        negatives = int.TryParse(rewardSnapshot.Child("negatives").Value?.ToString(), out int negatives) ? negatives : 0
+                    };
+                }
+            }
+
+            // Parse gameProgress (au niveau racine)
+            if (snapshot.Child("gameProgress").Exists)
+            {
+                userData.gameProgress = new Dictionary<string, GameProgressEntry>();
+                foreach (var game in snapshot.Child("gameProgress").Children)
+                {
+                    var gameEntry = new GameProgressEntry
+                    {
+                        lastScore = int.TryParse(game.Child("lastScore").Value?.ToString(), out int lastScore) ? lastScore : 0,
+                        bestScore = int.TryParse(game.Child("bestScore").Value?.ToString(), out int bestScore) ? bestScore : 0,
+                        completedAt = game.Child("completedAt").Value?.ToString()
+                    };
+                    userData.gameProgress[game.Key] = gameEntry;
+                }
+            }
+
+            // Parse achievements (au niveau racine)
+            if (snapshot.Child("achievements").Exists)
+            {
+                userData.achievements = new AchievementData();
+                if (snapshot.Child("achievements").Child("badges").Exists)
+                {
+                    userData.achievements.badges = new List<string>();
+                    foreach (var badge in snapshot.Child("achievements").Child("badges").Children)
+                    {
+                        userData.achievements.badges.Add(badge.Value.ToString());
+                    }
+                }
+            }
+
+            return userData;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("Error parsing UserData: " + ex.Message);
+            return null;
+        }
+    }
+
+    private IEnumerator LoadSceneDelayed()
+    {
+        yield return null;
+        Debug.Log("Loading WelcomeScene...");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("WelcomeScene");
+    }
+
     private void AuthenticateUserManual(string uid, string enteredPin)
     {
         try
@@ -214,9 +394,15 @@ public class QRAuthenticator : MonoBehaviour
             var pinRef = dbReference.Child("users").Child(uid).Child("password");
             pinRef.GetValueAsync().ContinueWithOnMainThread(task =>
             {
+                Debug.Log("Firebase reference: " + dbReference);
+                Debug.Log("UID entered: '" + uid + "'");
+                Debug.Log("PIN entered: '" + enteredPin + "'");
+
                 if (task.IsCompleted && task.Result.Exists)
                 {
                     string storedPin = task.Result.Value.ToString();
+                    Debug.Log("Stored PIN: '" + storedPin + "'");
+
                     if (enteredPin == storedPin)
                     {
                         statusText.text = "Authentication successful!";
@@ -225,162 +411,20 @@ public class QRAuthenticator : MonoBehaviour
                     else
                     {
                         statusText.text = "Invalid PIN.";
+                        Debug.Log("PIN mismatch - entered: '" + enteredPin + "', stored: '" + storedPin + "'");
                     }
                 }
                 else
                 {
                     statusText.text = "User not found.";
+                    Debug.Log("User not found in Firebase for UID: " + uid);
                 }
             });
         }
         catch (Exception ex)
         {
-            Debug.LogError("Exception dans le bloc Firebase: " + ex.Message + "\n" + ex.StackTrace);
+            Debug.LogError("Exception in manual authentication: " + ex.Message + "\n" + ex.StackTrace);
             statusText.text = "Authentication error.";
         }
-    }
-
-    private void LoadPlayerData(string uid)
-    {
-        statusText.text = "Welcome back! Loading your profile...";
-
-        dbReference.Child("users").Child(uid).GetValueAsync().ContinueWithOnMainThread(task =>
-        {
-            if (task.IsCompleted && task.Result.Exists)
-            {
-                var playerData = task.Result;
-                string schoolGrade = playerData.Child("schoolGrade").Value.ToString();
-                Debug.Log($"Grade de l'étudiant {uid} : {schoolGrade}");
-
-                // Vérifier si l'étudiant est en grade 5 ou 6
-                if (schoolGrade != "5" && schoolGrade != "6")
-                {
-                    statusText.text = "Seuls les étudiants de grade 5 ou 6 peuvent jouer.";
-                    Debug.LogError($"Grade non autorisé : {schoolGrade}");
-                    return;
-                }
-
-                // Vérifier les tests pour vertical_operations avec Multiplication
-                dbReference.Child("tests").GetValueAsync().ContinueWithOnMainThread(testTask =>
-                {
-                    if (testTask.IsCompleted && testTask.Result.Exists)
-                    {
-                        bool hasValidTest = false;
-                        int maxNumberRange = 3; // Valeur par défaut
-                        int numOperations = 5; // Valeur par défaut
-                        float requiredCorrectAnswersMinimumPercent = 75f; // Valeur par défaut
-
-                        foreach (DataSnapshot test in testTask.Result.Children)
-                        {
-                            string testId = test.Key;
-                            string testGrade = test.Child("grade").Value.ToString();
-                            Debug.Log($"Analyse du test {testId} pour le grade {testGrade}");
-
-                            // Vérifier que le test est pour grade 5 ou 6
-                            if (testGrade != "5" && testGrade != "6")
-                            {
-                                Debug.Log($"Test {testId} ignoré : grade {testGrade} non autorisé.");
-                                continue;
-                            }
-
-                            // Vérifier explicitement si le test contient vertical_operations
-                            if (!test.HasChild("miniGameConfigs/vertical_operations"))
-                            {
-                                Debug.Log($"Test {testId} ignoré : pas de miniGameConfigs/vertical_operations.");
-                                continue;
-                            }
-
-                            // Vérifier que groupsMiniGameOrder contient vertical_operations
-                            if (!test.HasChild("groupsMiniGameOrder/o") || !test.Child("groupsMiniGameOrder/o").Children.Any(child => child.Value.ToString() == "vertical_operations"))
-                            {
-                                Debug.Log($"Test {testId} ignoré : vertical_operations non inclus dans groupsMiniGameOrder/o.");
-                                continue;
-                            }
-
-                            DataSnapshot verticalOpsConfig = test.Child("miniGameConfigs/vertical_operations");
-                            bool isMultiplication = false;
-
-                            // Vérifier groupsConfig pour s'assurer que l'étudiant est assigné
-                            if (verticalOpsConfig.HasChild("groupsConfig"))
-                            {
-                                foreach (DataSnapshot group in verticalOpsConfig.Child("groupsConfig").Children)
-                                {
-                                    string groupId = group.Key;
-                                    if (group.HasChild("studentIds"))
-                                    {
-                                        foreach (DataSnapshot sid in group.Child("studentIds").Children)
-                                        {
-                                            if (sid.Value.ToString() == uid)
-                                            {
-                                                // Étudiant trouvé dans ce groupe, vérifier operationsAllowed
-                                                string operationsAllowed = group.Child("config/operationsAllowed").Value.ToString().ToLower();
-                                                if (operationsAllowed.Contains("multiplication"))
-                                                {
-                                                    isMultiplication = true;
-                                                    maxNumberRange = int.Parse(group.Child("config/maxNumberRange").Value.ToString());
-                                                    numOperations = int.Parse(group.Child("config/numOperations").Value.ToString());
-                                                    requiredCorrectAnswersMinimumPercent = float.Parse(group.Child("config/requiredCorrectAnswersMinimumPercent").Value.ToString());
-                                                    Debug.Log($"GroupsConfig trouvé pour test {testId}, groupe {groupId}, étudiant {uid} : maxNumberRange={maxNumberRange}, numOperations={numOperations}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Si groupsConfig n'a pas donné de résultat, vérifier gradeConfig
-                            if (!isMultiplication && verticalOpsConfig.HasChild("gradeConfig/config/operationsAllowed"))
-                            {
-                                string operationsAllowed = verticalOpsConfig.Child("gradeConfig/config/operationsAllowed").Value.ToString().ToLower();
-                                if (operationsAllowed.Contains("multiplication"))
-                                {
-                                    isMultiplication = true;
-                                    maxNumberRange = int.Parse(verticalOpsConfig.Child("gradeConfig/config/maxNumberRange").Value.ToString());
-                                    numOperations = int.Parse(verticalOpsConfig.Child("gradeConfig/config/numOperations").Value.ToString());
-                                    requiredCorrectAnswersMinimumPercent = float.Parse(verticalOpsConfig.Child("gradeConfig/config/requiredCorrectAnswersMinimumPercent").Value.ToString());
-                                    Debug.Log($"GradeConfig trouvé pour test {testId} : maxNumberRange={maxNumberRange}, numOperations={numOperations}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
-                                }
-                            }
-
-                            if (isMultiplication)
-                            {
-                                hasValidTest = true;
-                                // Créer ou accéder au GameManager et définir les paramètres
-                                if (GameManager.Instance == null)
-                                {
-                                    GameObject gmObject = new GameObject("GameManager");
-                                    gmObject.AddComponent<GameManager>();
-                                    Debug.LogWarning("GameManager créé dynamiquement dans QRAuthenticator.");
-                                }
-                                GameManager.Instance.SetTestParameters(maxNumberRange, numOperations, requiredCorrectAnswersMinimumPercent, uid);
-                                break;
-                            }
-                        }
-
-                        if (hasValidTest)
-                        {
-                            statusText.text = "Test trouvé ! Chargement de VerticalOperationScene...";
-                            Debug.Log("Chargement de VerticalOperationScene avec les paramètres définis.");
-                            UnityEngine.SceneManagement.SceneManager.LoadScene("VerticalOperationsScene");
-                        }
-                        else
-                        {
-                            statusText.text = "Aucun test de multiplication verticale trouvé.";
-                            Debug.LogError("Aucun test valide trouvé pour l'étudiant.");
-                        }
-                    }
-                    else
-                    {
-                        statusText.text = "Échec du chargement des tests.";
-                        Debug.LogError("Échec de la récupération des tests depuis Firebase.");
-                    }
-                });
-            }
-            else
-            {
-                statusText.text = "Échec du chargement des données du joueur.";
-                Debug.LogError($"Utilisateur {uid} non trouvé dans Firebase.");
-            }
-        });
     }
 }
