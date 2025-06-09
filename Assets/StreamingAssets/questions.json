@@ -199,7 +199,7 @@
         { "text": "6 x 8", "correct": true },
         { "text": "6 + 8", "correct": false },
         { "text": "48 - 8", "correct": false },
-        { "text": "8 x 6", "correct": false }
+        { "text": "8 - 6", "correct": false }
       ]
     },
     {
@@ -215,7 +215,7 @@
         { "text": "2 x 15", "correct": true },
         { "text": "2 + 15", "correct": false },
         { "text": "30 - 2", "correct": false },
-        { "text": "15 x 2", "correct": false }
+        { "text": "15 - 2", "correct": false }
       ]
     },
     {
