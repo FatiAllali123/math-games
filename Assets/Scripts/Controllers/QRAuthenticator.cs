@@ -283,10 +283,6 @@ public class QRAuthenticator : MonoBehaviour
             {
                 Debug.Log("Raw Firebase data: " + task.Result.GetRawJsonValue());
 
-<<<<<<< HEAD
-                // Proceed to the main game scene
-                UnityEngine.SceneManagement.SceneManager.LoadScene("Compositionscene");
-=======
                 try
                 {
                     // Cr�er manuellement UserData � partir des donn�es Firebase
@@ -321,7 +317,6 @@ public class QRAuthenticator : MonoBehaviour
                     Debug.LogError("Exception while parsing user data: " + ex.Message + "\n" + ex.StackTrace);
                     statusText.text = "Error loading user data.";
                 }
->>>>>>> d3f86958b522f74f7e0817aeca13ffe8e9ae5f50
             }
             else
             {
