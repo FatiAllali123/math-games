@@ -15,7 +15,7 @@ EditorBuildSettings:
     path: Assets/Scenes/TestScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   - enabled: 1
-    path: Assets/Scenes/Compositionscene.unity
+    path: Assets/Scenes/COPY.unity
     guid: cadc2aa7fe147074f998900174bbf59b
   - enabled: 1
     path: Assets/Scenes/WelcomeScene.unity
@@ -26,6 +26,15 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/testRoad.unity
     guid: 8751fd8fc634b7241925f70fbfce1ce0
+  - enabled: 1
+    path: Assets/Scenes/find_compositions.unity
+    guid: b14481c4707ed0d459689edb1cbfc48d
+  - enabled: 1
+    path: Assets/Scenes/GameOver.unity
+    guid: f7c9dffe7a7399b4a8e1056d13d222d4
+  - enabled: 1
+    path: Assets/Scenes/WinScene.unity
+    guid: 3afe7cf851583ce4d8720850b84cdf7c
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: 9c6731f7965d7f5439e87b2c784bcdf0, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 2e752e94b781e76418bacd98c97864a5, type: 2}
