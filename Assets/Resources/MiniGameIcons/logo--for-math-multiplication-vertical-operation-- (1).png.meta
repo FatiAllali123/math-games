@@ -129,6 +129,19 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -409,7 +422,19 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      logo--for-math-multiplication-vertical-operation-- (1)_0: 1366885888060513420
+      logo--for-math-multiplication-vertical-operation-- (1)_1: 8233867058755913765
+      logo--for-math-multiplication-vertical-operation-- (1)_10: -4056441024373600389
+      logo--for-math-multiplication-vertical-operation-- (1)_11: -1195514509930349607
+      logo--for-math-multiplication-vertical-operation-- (1)_2: -6227087079890700091
+      logo--for-math-multiplication-vertical-operation-- (1)_3: 2311323358349522340
+      logo--for-math-multiplication-vertical-operation-- (1)_4: 5672651824486169742
+      logo--for-math-multiplication-vertical-operation-- (1)_5: -4070564896877573825
+      logo--for-math-multiplication-vertical-operation-- (1)_6: 2180713237390468767
+      logo--for-math-multiplication-vertical-operation-- (1)_7: 5975964972657833603
+      logo--for-math-multiplication-vertical-operation-- (1)_8: -2287219295714640015
+      logo--for-math-multiplication-vertical-operation-- (1)_9: -8542008959511406170
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
