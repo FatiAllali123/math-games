@@ -2,19 +2,28 @@ using System.Collections.Generic;
 using Firebase.Database;
 using Firebase.Extensions;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GroupChecker : MonoBehaviour
 {
     public List<string> orderedMiniGames = new List<string>();
-    public string userGroup = null; // Peut rester null si pas de groupe
+    public string userGroup = null;
 
     private DatabaseReference dbReference;
 
     void Start()
     {
+        // Vérifiez que GameSession existe, sinon la crée
+        if (GameSession.Instance == null)
+        {
+            var gameSessionObj = new GameObject("GameSession");
+            gameSessionObj.AddComponent<GameSession>();
+        }
+
         if (UserSession.Instance == null || UserSession.Instance.CurrentUser == null)
         {
             Debug.LogError("Aucun utilisateur connecté !");
+            SceneManager.LoadScene("LoginScene");
             return;
         }
 
@@ -32,27 +41,31 @@ public class GroupChecker : MonoBehaviour
     {
         dbReference.Child("tests").Child(testId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
-            if (task.IsFaulted || !task.Result.Exists)
+            if (task.IsFaulted)
             {
-                Debug.LogError("Erreur ou test inexistant !");
+                Debug.LogError("Erreur de chargement: " + task.Exception);
+                return;
+            }
+
+            if (!task.Result.Exists)
+            {
+                Debug.LogError("Test inexistant !");
                 return;
             }
 
             DataSnapshot testSnapshot = task.Result;
             string foundGroup = null;
 
-            // Vérifie chaque mini-jeu
+            // Recherche du groupe de l'étudiant
             if (testSnapshot.Child("miniGameConfigs").Exists)
             {
                 foreach (var miniGame in testSnapshot.Child("miniGameConfigs").Children)
                 {
-                    var gameKey = miniGame.Key;
                     var groupsConfig = miniGame.Child("groupsConfig");
                     if (!groupsConfig.Exists) continue;
 
                     foreach (var group in groupsConfig.Children)
                     {
-                        var groupName = group.Key;
                         var studentIds = group.Child("studentIds");
                         if (!studentIds.Exists) continue;
 
@@ -60,23 +73,21 @@ public class GroupChecker : MonoBehaviour
                         {
                             if (id.Value != null && id.Value.ToString() == studentId)
                             {
-                                foundGroup = groupName;
+                                foundGroup = group.Key;
                                 break;
                             }
                         }
-
                         if (foundGroup != null) break;
                     }
-
                     if (foundGroup != null) break;
                 }
             }
 
-            // Décider de l’ordre à suivre
+            // Détermination de l'ordre des jeux
             if (foundGroup != null)
             {
                 userGroup = foundGroup;
-                Debug.Log("L'étudiant appartient au groupe : " + userGroup);
+                Debug.Log("Groupe trouvé: " + userGroup);
 
                 var groupOrder = testSnapshot.Child("groupsMiniGameOrder").Child(userGroup);
                 if (groupOrder.Exists)
@@ -89,7 +100,7 @@ public class GroupChecker : MonoBehaviour
             }
             else
             {
-                Debug.Log("L’étudiant n'appartient à aucun groupe, ordre standard sera utilisé.");
+                Debug.Log("Utilisation de l'ordre par défaut");
                 var defaultOrder = testSnapshot.Child("miniGameOrder");
                 if (defaultOrder.Exists)
                 {
@@ -100,39 +111,62 @@ public class GroupChecker : MonoBehaviour
                 }
             }
 
-            Debug.Log("Ordre des jeux sélectionné : " + string.Join(", ", orderedMiniGames));
+            // Initialisation de GameSession si nécessaire
+            if (GameSession.Instance == null)
+            {
+                var gameSessionObj = new GameObject("GameSession");
+                gameSessionObj.AddComponent<GameSession>();
+            }
 
-            //Charger les configurations pour chaque mini-jeu (après avoir rempli la liste)
+            // Sauvegarde des données
+            GameSession.Instance.CurrentTestId = testId;
+            GameSession.Instance.StudentGroup = userGroup;
+            GameSession.Instance.MiniGameOrder = new List<string>(orderedMiniGames);
+
+            // Chargement des configurations
             foreach (string gameName in orderedMiniGames)
             {
+                var gameConfig = new Dictionary<string, object>();
                 var gameSnapshot = testSnapshot.Child("miniGameConfigs").Child(gameName);
-                Dictionary<string, object> config = new Dictionary<string, object>();
 
-                if (userGroup != null && gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config").Exists)
+                if (!string.IsNullOrEmpty(userGroup))
                 {
-                    foreach (var field in gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config").Children)
+                    var groupConfig = gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config");
+                    if (groupConfig.Exists)
                     {
-                        config[field.Key] = field.Value;
+                        foreach (var field in groupConfig.Children)
+                        {
+                            gameConfig[field.Key] = field.Value;
+                        }
                     }
                 }
-                else if (gameSnapshot.Child("gradeConfig").Child("config").Exists)
+
+                if (gameConfig.Count == 0 && gameSnapshot.Child("gradeConfig").Child("config").Exists)
                 {
-                    foreach (var field in gameSnapshot.Child("gradeConfig").Child("config").Children)
+                    var gradeConfig = gameSnapshot.Child("gradeConfig").Child("config");
+                    foreach (var field in gradeConfig.Children)
                     {
-                        config[field.Key] = field.Value;
+                        gameConfig[field.Key] = field.Value;
                     }
                 }
-                else
-                {
-                    Debug.LogWarning($"Aucune configuration trouvée pour {gameName}");
-                    continue;
-                }
 
-                TestConfiguration.MiniGameConfigs[gameName] = config;
-                Debug.Log($"Config chargée pour {gameName}: {string.Join(", ", config)}");
+                if (gameConfig.Count > 0)
+                {
+                    GameSession.Instance.MiniGameConfigs[gameName] = gameConfig;
+                    Debug.Log($"Config {gameName} chargée: {string.Join(", ", gameConfig)}");
+                }
+            }
+
+            // Chargement de la scène de jeu
+            if (orderedMiniGames.Count > 0)
+            {
+                Debug.Log("Redirection vers ChoiceScene");
+                SceneManager.LoadScene("ChoiceScene");
+            }
+            else
+            {
+                Debug.LogError("Aucun mini-jeu configuré !");
             }
         });
     }
-
-
 }
