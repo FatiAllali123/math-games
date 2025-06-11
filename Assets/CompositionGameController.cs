@@ -4,8 +4,10 @@ using UnityEngine.UI;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using System.Collections;
-using System.Threading.Tasks;
 using Firebase.Database;
+using Firebase.Extensions;
+using System.Threading.Tasks;
+using System.Linq;
 
 public class CompositionGameController : MonoBehaviour
 {
@@ -21,43 +23,36 @@ public class CompositionGameController : MonoBehaviour
     public TMP_Text compositionsFoundText;
     public Slider progressBar;
     public RectTransform starHandle; // Slider handle (star)
+    public TMP_Text scoreText; // Coin display
 
-    private static int sharedTargetNumber;
+    private int targetNumber; // Non-static to avoid instance conflicts
+    private int[] validTargets;
+
+    private static int sharedTargetNumber; // Kept static for initialization logic
     private static bool isTargetInitialized = false;
     private static HashSet<string> foundCompositions = new HashSet<string>();
-    private static List<Vector2Int> allPossibleCompositions = new List<Vector2Int>();
+    private static HashSet<string> allPossibleCompositionKeys = new HashSet<string>();
+    private static List<Vector2Int> allPossibleCompositions = new List<Vector2Int>(); // For logging
     private static int nextClickCount = 0;
     private static int totalTargets = 0;
     private static int correctTargets = 0;
 
-    private int targetNumber;
-    private int[] validTargets;
-
-    private int maxNumberRange = 2; // Default
-    private int minNumCompositions = 3; // Default
-    private float requiredCorrectAnswersMinimumPercent = 50f; // Default
+    private int minNumCompositions = 3; // Prevent instant win
+    private float requiredCorrectAnswersMinimumPercent = 75f; // Prevent instant win
 
     private bool targetCountedAsCorrect = false;
 
     private DatabaseReference databaseReference;
     private string playerUid;
     private bool isFirebaseInitialized;
-
-    private Canvas panelCanvas; // Reference to the panel's Canvas
+    private int currentCoins = 0; // Player's coin balance
+    private int earnedCoins = 0; // Coins earned in this session
 
     private void Awake()
     {
         FindReferences();
         SetupButtons();
-        // Find the Canvas containing the panel
-        panelCanvas = GetComponentInParent<Canvas>();
-        if (panelCanvas == null)
-        {
-            panelCanvas = FindObjectOfType<Canvas>();
-            if (panelCanvas == null) Debug.LogError("No Canvas found in scene! UI may not render correctly.");
-            else Debug.Log($"Found panelCanvas: {panelCanvas.name}");
-        }
-        else Debug.Log($"Found panelCanvas via GetComponentInParent: {panelCanvas.name}");
+        Debug.Log($"Awake completed for {gameObject.name}. nextButton={(nextButton != null ? nextButton.name : "null")}");
     }
 
     private void Start()
@@ -67,7 +62,6 @@ public class CompositionGameController : MonoBehaviour
 
     private IEnumerator InitializeWithFirebase()
     {
-        // Wait for Firebase dependencies
         var dependencyTask = Firebase.FirebaseApp.CheckAndFixDependenciesAsync();
         yield return new WaitUntil(() => dependencyTask.IsCompleted);
 
@@ -82,7 +76,6 @@ public class CompositionGameController : MonoBehaviour
             yield break;
         }
 
-        // Wait for UserSession to authenticate user
         float timeout = 10f;
         float elapsed = 0f;
         while (UserSession.Instance == null || UserSession.Instance.CurrentUser == null && elapsed < timeout)
@@ -102,8 +95,83 @@ public class CompositionGameController : MonoBehaviour
         Debug.Log($"Firebase initialized for player: {playerUid}");
         isFirebaseInitialized = true;
 
-        // Proceed with initialization
+        yield return StartCoroutine(FetchCoins());
+        UpdateCoinDisplay();
+
         yield return StartCoroutine(InitializeWithFirebaseConfig());
+    }
+
+    private IEnumerator FetchCoins()
+    {
+        Debug.Log($"Fetching coins for player: {playerUid}");
+        var coinTask = databaseReference
+            .Child("users")
+            .Child(playerUid)
+            .Child("playerProfile")
+            .Child("coins")
+            .GetValueAsync();
+        yield return new WaitUntil(() => coinTask.IsCompleted);
+
+        if (coinTask.IsFaulted)
+        {
+            Debug.LogError($"Failed to fetch coins for {playerUid}: {coinTask.Exception?.InnerExceptions?.Aggregate("", (current, ex) => current + ex.Message + "\n")}");
+            currentCoins = 0;
+        }
+        else if (coinTask.Result.Exists)
+        {
+            if (long.TryParse(coinTask.Result.Value?.ToString(), out long coins))
+            {
+                currentCoins = (int)coins;
+                Debug.Log($"Fetched coins for {playerUid}: {currentCoins}");
+            }
+            else
+            {
+                Debug.LogWarning($"Invalid coin value for {playerUid}: '{coinTask.Result.Value}', setting to 0.");
+                currentCoins = 0;
+            }
+        }
+        else
+        {
+            Debug.Log($"No coins found for {playerUid}, initializing to 0.");
+            currentCoins = 0;
+        }
+    }
+
+    private void UpdateCoinDisplay()
+    {
+        if (scoreText != null)
+        {
+            scoreText.text = $"Coins: {currentCoins + earnedCoins}";
+            Debug.Log($"Updated scoreText: Coins: {currentCoins + earnedCoins}");
+        }
+        else
+        {
+            Debug.LogWarning("Cannot update scoreText: scoreText is null!");
+        }
+    }
+
+    private async Task SaveCoinsToDatabase()
+    {
+        if (!isFirebaseInitialized || string.IsNullOrEmpty(playerUid) || databaseReference == null)
+        {
+            Debug.LogError("Cannot save coins: Firebase not initialized or playerUid/databaseReference is null!");
+            return;
+        }
+
+        try
+        {
+            await databaseReference
+                .Child("users")
+                .Child(playerUid)
+                .Child("playerProfile")
+                .Child("coins")
+                .SetValueAsync(currentCoins + earnedCoins);
+            Debug.Log($"Saved coins for {playerUid}: {currentCoins + earnedCoins}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to save coins for {playerUid}: {e.Message}\nStackTrace: {e.StackTrace}");
+        }
     }
 
     private IEnumerator InitializeWithFirebaseConfig()
@@ -120,7 +188,7 @@ public class CompositionGameController : MonoBehaviour
 
         if (!TestConfiguration.MiniGameConfigs.ContainsKey(miniGameName))
         {
-            Debug.LogWarning($"Firebase config timeout for {miniGameName}, using defaults: maxNumberRange={maxNumberRange}, minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+            Debug.LogWarning($"Firebase config timeout for {miniGameName}, using defaults: minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
         }
 
         LoadFirebaseConfig();
@@ -133,170 +201,89 @@ public class CompositionGameController : MonoBehaviour
     {
         Debug.Log($"FindReferences: Starting reference checks for {gameObject.name}");
 
-        // Left Digit Slot
         if (leftDigitSlot == null)
         {
-            leftDigitSlot = transform.Find("DigitSlotCanvasLeft/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>();
-            if (leftDigitSlot == null)
-            {
-                leftDigitSlot = FindObjectOfType<DigitSlot>();
-                if (leftDigitSlot == null) Debug.LogError("leftDigitSlot not found in scene!");
-                else Debug.Log($"Found leftDigitSlot via FindObjectOfType: {leftDigitSlot.gameObject.name}");
-            }
-            else Debug.Log($"Found leftDigitSlot via transform.Find: {leftDigitSlot.gameObject.name}");
+            leftDigitSlot = transform.Find("DigitSlotLeft")?.GetComponent<DigitSlot>()
+                         ?? transform.Find("DigitSlotCanvasLeft/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>()
+                         ?? GameObject.FindWithTag("LeftDigitSlot")?.GetComponent<DigitSlot>();
+            if (leftDigitSlot == null) Debug.LogError("leftDigitSlot not found in hierarchy or tags!");
+            else Debug.Log($"Found leftDigitSlot: {leftDigitSlot.gameObject.name}");
         }
-        else Debug.Log($"leftDigitSlot assigned via Inspector: {leftDigitSlot.gameObject.name}");
 
-        // Right Digit Slot
         if (rightDigitSlot == null)
         {
-            rightDigitSlot = transform.Find("DigitSlotCanvasRight/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>();
-            if (rightDigitSlot == null)
-            {
-                var slots = FindObjectsOfType<DigitSlot>();
-                foreach (var slot in slots)
-                {
-                    if (slot != leftDigitSlot)
-                    {
-                        rightDigitSlot = slot;
-                        break;
-                    }
-                }
-                if (rightDigitSlot == null) Debug.LogError("rightDigitSlot not found in scene!");
-                else Debug.Log($"Found rightDigitSlot via FindObjectOfType: {rightDigitSlot.gameObject.name}");
-            }
-            else Debug.Log($"Found rightDigitSlot via transform.Find: {rightDigitSlot.gameObject.name}");
+            rightDigitSlot = transform.Find("DigitSlotRight")?.GetComponent<DigitSlot>()
+                          ?? transform.Find("DigitSlotCanvasRight/DigitSlotPanel/DigitSlot")?.GetComponent<DigitSlot>()
+                          ?? GameObject.FindWithTag("RightDigitSlot")?.GetComponent<DigitSlot>();
+            if (rightDigitSlot == null) Debug.LogError("rightDigitSlot not found in hierarchy or tags!");
+            else Debug.Log($"Found rightDigitSlot: {rightDigitSlot.gameObject.name}");
         }
-        else Debug.Log($"rightDigitSlot assigned via Inspector: {rightDigitSlot.gameObject.name}");
 
-        // Result Text
         if (resultText == null)
         {
-            resultText = transform.Find("ResultText")?.GetComponent<TMP_Text>();
-            if (resultText == null)
-            {
-                resultText = FindObjectOfType<TMP_Text>();
-                if (resultText == null) Debug.LogError("resultText not found in scene!");
-                else Debug.Log($"Found resultText via FindObjectOfType: {resultText.gameObject.name}");
-            }
-            else Debug.Log($"Found resultText via transform.Find: {resultText.gameObject.name}");
+            resultText = transform.Find("ResultText")?.GetComponent<TMP_Text>()
+                      ?? GameObject.Find("ResultText")?.GetComponent<TMP_Text>();
+            if (resultText == null) Debug.LogError("resultText not found in hierarchy!");
+            else Debug.Log($"Found resultText: {resultText.gameObject.name}");
         }
-        else Debug.Log($"resultText assigned via Inspector: {resultText.gameObject.name}");
 
-        // Submit Button
         if (submitButton == null)
         {
-            submitButton = GetComponentInChildren<Button>(true);
-            if (submitButton == null)
-            {
-                var buttons = FindObjectsOfType<Button>(true);
-                foreach (var button in buttons)
-                {
-                    if (button.gameObject.name.ToLower().Contains("submit"))
-                    {
-                        submitButton = button;
-                        break;
-                    }
-                }
-                if (submitButton == null) Debug.LogError("submitButton not found in scene!");
-                else Debug.Log($"Found submitButton via FindObjectOfType: {submitButton.gameObject.name}");
-            }
-            else Debug.Log($"Found submitButton via GetComponentInChildren: {submitButton.gameObject.name}");
+            submitButton = transform.Find("SubmitButton")?.GetComponent<Button>()
+                        ?? GameObject.Find("SubmitButton")?.GetComponent<Button>();
+            if (submitButton == null) Debug.LogError("submitButton not found in hierarchy!");
+            else Debug.Log($"Found submitButton: {submitButton.gameObject.name}");
         }
-        else Debug.Log($"submitButton assigned via Inspector: {submitButton.gameObject.name}");
 
-        // Feedback Text
         if (feedbackText == null)
         {
-            feedbackText = transform.Find("FeedbackText")?.GetComponent<TMP_Text>();
-            if (feedbackText == null)
-            {
-                var texts = FindObjectsOfType<TMP_Text>();
-                foreach (var text in texts)
-                {
-                    if (text != resultText && text.gameObject.name.ToLower().Contains("feedback"))
-                    {
-                        feedbackText = text;
-                        break;
-                    }
-                }
-                if (feedbackText == null) Debug.LogError("feedbackText not found in scene!");
-                else Debug.Log($"Found feedbackText via FindObjectOfType: {feedbackText.gameObject.name}");
-            }
-            else Debug.Log($"Found feedbackText via transform.Find: {feedbackText.gameObject.name}");
+            feedbackText = transform.Find("FeedbackText")?.GetComponent<TMP_Text>()
+                        ?? GameObject.Find("FeedbackText")?.GetComponent<TMP_Text>();
+            if (feedbackText == null) Debug.LogError("feedbackText not found in hierarchy!");
+            else Debug.Log($"Found feedbackText: {feedbackText.gameObject.name}");
         }
-        else Debug.Log($"feedbackText assigned via Inspector: {feedbackText.gameObject.name}");
 
-        // Compositions Found Text
         if (compositionsFoundText == null)
         {
-            compositionsFoundText = transform.Find("CompositionsFoundText")?.GetComponent<TMP_Text>();
-            if (compositionsFoundText == null)
-            {
-                var texts = FindObjectsOfType<TMP_Text>();
-                foreach (var text in texts)
-                {
-                    if (text != resultText && text != feedbackText && text.gameObject.name.ToLower().Contains("composition"))
-                    {
-                        compositionsFoundText = text;
-                        break;
-                    }
-                }
-                if (compositionsFoundText == null) Debug.LogError("compositionsFoundText not found in scene!");
-                else Debug.Log($"Found compositionsFoundText via FindObjectOfType: {compositionsFoundText.gameObject.name}");
-            }
-            else Debug.Log($"Found compositionsFoundText via transform.Find: {compositionsFoundText.gameObject.name}");
+            compositionsFoundText = transform.Find("CompositionsFoundText")?.GetComponent<TMP_Text>()
+                                 ?? GameObject.Find("CompositionsFoundText")?.GetComponent<TMP_Text>();
+            if (compositionsFoundText == null) Debug.LogError("compositionsFoundText not found in hierarchy!");
+            else Debug.Log($"Found compositionsFoundText: {compositionsFoundText.gameObject.name}");
         }
-        else Debug.Log($"compositionsFoundText assigned via Inspector: {compositionsFoundText.gameObject.name}");
 
-        // Next Button
         if (nextButton == null)
         {
-            nextButton = transform.Find("NextButton")?.GetComponent<Button>();
-            if (nextButton == null)
-            {
-                var buttons = FindObjectsOfType<Button>(true);
-                foreach (var button in buttons)
-                {
-                    if (button != submitButton && button.gameObject.name.ToLower().Contains("next"))
-                    {
-                        nextButton = button;
-                        break;
-                    }
-                }
-                if (nextButton == null) Debug.LogError("nextButton not found in scene! Ensure a Button named 'NextButton' or similar exists.");
-                else Debug.Log($"Found nextButton via FindObjectOfType: {nextButton.gameObject.name}");
-            }
-            else Debug.Log($"Found nextButton via transform.Find: {nextButton.gameObject.name}");
+            nextButton = transform.Find("NextButton")?.GetComponent<Button>()
+                      ?? transform.Find("Next")?.GetComponent<Button>()
+                      ?? transform.Find("nextButton")?.GetComponent<Button>()
+                      ?? GameObject.Find("NextButton")?.GetComponent<Button>()
+                      ?? GetComponentInChildren<Button>(true);
+            if (nextButton == null) Debug.LogError("nextButton not found in hierarchy! Ensure a GameObject named 'NextButton' is a child of GameController or assigned in Inspector.");
+            else Debug.Log($"Found nextButton: {nextButton.gameObject.name}");
         }
-        else Debug.Log($"nextButton assigned via Inspector: {nextButton.gameObject.name}");
 
-        // Progress Bar
         if (progressBar == null)
         {
-            progressBar = transform.Find("ProgressSlider")?.GetComponent<Slider>();
-            if (progressBar == null)
-            {
-                progressBar = FindObjectOfType<Slider>(true);
-                if (progressBar == null) Debug.LogError("progressBar not found in scene! Ensure a Slider named 'ProgressSlider' or similar exists.");
-                else Debug.Log($"Found progressBar via FindObjectOfType: {progressBar.gameObject.name}");
-            }
-            else Debug.Log($"Found progressBar via transform.Find: {progressBar.gameObject.name}");
+            progressBar = transform.Find("ProgressSlider")?.GetComponent<Slider>()
+                       ?? GameObject.Find("ProgressSlider")?.GetComponent<Slider>();
+            if (progressBar == null) Debug.LogError("progressBar not found in hierarchy!");
+            else Debug.Log($"Found progressBar: {progressBar.gameObject.name}");
         }
-        else Debug.Log($"progressBar assigned via Inspector: {progressBar.gameObject.name}");
 
-        // Star Handle
+        if (scoreText == null)
+        {
+            scoreText = transform.Find("ScoreText")?.GetComponent<TMP_Text>()
+                     ?? GameObject.Find("ScoreText")?.GetComponent<TMP_Text>();
+            if (scoreText == null) Debug.LogError("scoreText not found in hierarchy!");
+            else Debug.Log($"Found scoreText: {scoreText.gameObject.name}");
+        }
+
         if (progressBar != null && starHandle == null)
         {
             starHandle = progressBar.handleRect;
-            if (starHandle == null) Debug.LogError("starHandle not found! Ensure ProgressSlider has a valid Handle Rect assigned.");
+            if (starHandle == null) Debug.LogError("starHandle not found on progressBar!");
             else Debug.Log($"Found starHandle: {starHandle.gameObject.name}");
         }
-        else if (progressBar == null)
-        {
-            Debug.LogError("Cannot find starHandle because progressBar is null!");
-        }
-        else Debug.Log($"starHandle assigned via Inspector: {starHandle.gameObject.name}");
     }
 
     private void SetupButtons()
@@ -305,17 +292,23 @@ public class CompositionGameController : MonoBehaviour
         {
             submitButton.onClick.RemoveAllListeners();
             submitButton.onClick.AddListener(CheckSolution);
-            Debug.Log("submitButton click listener set up.");
+            Debug.Log("submitButton listener set.");
         }
-        else Debug.LogError("submitButton is null, cannot set up click listener!");
+        else
+        {
+            Debug.LogError("submitButton is null, cannot set up click listener!");
+        }
 
         if (nextButton != null)
         {
             nextButton.onClick.RemoveAllListeners();
             nextButton.onClick.AddListener(OnNextButtonClicked);
-            Debug.Log("nextButton click listener set up.");
+            Debug.Log("nextButton listener set.");
         }
-        else Debug.LogError("nextButton is null, cannot set up click listener!");
+        else
+        {
+            Debug.LogError("nextButton is null, cannot set up click listener! Game progression will be blocked.");
+        }
     }
 
     private void LoadFirebaseConfig()
@@ -324,23 +317,19 @@ public class CompositionGameController : MonoBehaviour
         if (TestConfiguration.MiniGameConfigs.ContainsKey(miniGameName))
         {
             var config = TestConfiguration.MiniGameConfigs[miniGameName];
-            if (config.ContainsKey("maxNumberRange") && int.TryParse(config["maxNumberRange"].ToString(), out int range))
-            {
-                maxNumberRange = range;
-            }
             if (config.ContainsKey("minNumCompositions") && int.TryParse(config["minNumCompositions"].ToString(), out int minComps))
             {
-                minNumCompositions = minComps;
+                minNumCompositions = Mathf.Max(1, minComps);
             }
             if (config.ContainsKey("requiredCorrectAnswersMinimumPercent") && float.TryParse(config["requiredCorrectAnswersMinimumPercent"].ToString(), out float percent))
             {
-                requiredCorrectAnswersMinimumPercent = percent;
+                requiredCorrectAnswersMinimumPercent = Mathf.Clamp(percent, 50f, 100f);
             }
-            Debug.Log($"Loaded config for {miniGameName}: maxNumberRange={maxNumberRange}, minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+            Debug.Log($"Loaded config for {miniGameName}: minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
         }
         else
         {
-            Debug.LogWarning($"No config found for {miniGameName}, using default values: maxNumberRange={maxNumberRange}, minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
+            Debug.LogWarning($"No config found for {miniGameName}, using defaults: minNumCompositions={minNumCompositions}, requiredCorrectAnswersMinimumPercent={requiredCorrectAnswersMinimumPercent}");
         }
 
         validTargets = GenerateValidTargets();
@@ -387,83 +376,43 @@ public class CompositionGameController : MonoBehaviour
 
     public void InitializeProblem()
     {
-        // Always generate a new target number to ensure refresh
-        GenerateValidTargetNumber();
-        isTargetInitialized = true;
+        if (!isTargetInitialized)
+        {
+            GenerateValidTargetNumber();
+            isTargetInitialized = true;
+        }
 
         targetNumber = sharedTargetNumber;
         if (resultText != null)
         {
             resultText.text = targetNumber.ToString();
-            Debug.Log($"Updated resultText to target number: {targetNumber}, actual text: {resultText.text}");
+            Debug.Log($"Updated resultText with target: {targetNumber}");
         }
         else
         {
-            Debug.LogWarning("Cannot update resultText: resultText is null!");
+            Debug.LogError("Cannot update resultText: resultText is null!");
         }
 
-        // Clear and refresh slots
-        ClearSlot(leftDigitSlot, "leftDigitSlot");
-        ClearSlot(rightDigitSlot, "rightDigitSlot");
-
-        if (feedbackText != null)
-        {
-            feedbackText.text = "";
-            Debug.Log("Cleared feedbackText.");
-        }
-        else
-        {
-            Debug.LogWarning("Cannot clear feedbackText: feedbackText is null!");
-        }
-
+        foundCompositions.Clear();
         UpdateCompositionsFoundText();
         UpdateProgressBar();
-        RefreshPanel();
-    }
 
-    private void ClearSlot(DigitSlot slot, string slotName)
-    {
-        if (slot != null && slot.slotText != null)
-        {
-            // Handle TMP_InputField if slotText is an InputField
-            TMP_InputField inputField = slot.slotText.GetComponent<TMP_InputField>();
-            if (inputField != null)
-            {
-                inputField.text = "";
-                inputField.DeactivateInputField();
-                inputField.ActivateInputField(); // Refresh input field
-                Debug.Log($"Cleared {slotName} (TMP_InputField) text: {inputField.text}");
-            }
-            else
-            {
-                slot.slotText.text = "";
-                Debug.Log($"Cleared {slotName} (TMP_Text) text: {slot.slotText.text}");
-            }
-        }
+        if (leftDigitSlot != null && leftDigitSlot.slotText != null)
+            leftDigitSlot.slotText.text = "";
         else
-        {
-            Debug.LogWarning($"Cannot clear {slotName}: {slotName} or slotText is null!");
-        }
-    }
+            Debug.LogError("Cannot clear leftDigitSlot: slot or slotText is null!");
 
-    private void RefreshPanel()
-    {
-        if (panelCanvas != null)
-        {
-            // Ensure panel is active
-            if (!panelCanvas.enabled)
-            {
-                panelCanvas.enabled = true;
-                Debug.Log($"Re-enabled panelCanvas: {panelCanvas.name}");
-            }
-            // Force UI update
-            Canvas.ForceUpdateCanvases();
-            Debug.Log($"Forced Canvas update for panel: {panelCanvas.name}");
-        }
+        if (rightDigitSlot != null && rightDigitSlot.slotText != null)
+            rightDigitSlot.slotText.text = "";
         else
-        {
-            Debug.LogWarning("Cannot refresh panel: panelCanvas is null!");
-        }
+            Debug.LogError("Cannot clear rightDigitSlot: slot or slotText is null!");
+
+        if (feedbackText != null)
+            feedbackText.text = "";
+        else
+            Debug.LogError("Cannot clear feedbackText: feedbackText is null!");
+
+        Debug.Log($"Initialized problem: targetNumber={targetNumber}, sharedTargetNumber={sharedTargetNumber}, allPossibleCompositionKeys=[{string.Join(", ", allPossibleCompositionKeys)}]");
     }
 
     private void GenerateValidTargetNumber()
@@ -472,7 +421,6 @@ public class CompositionGameController : MonoBehaviour
         allPossibleCompositions = FindUniqueCompositions(sharedTargetNumber);
         foundCompositions.Clear();
         targetCountedAsCorrect = false;
-        Debug.Log($"Generated new target number: {sharedTargetNumber}");
     }
 
     private List<Vector2Int> FindUniqueCompositions(int target)
@@ -504,6 +452,7 @@ public class CompositionGameController : MonoBehaviour
         if (feedbackText != null)
         {
             feedbackText.text = message;
+            Debug.Log($"Showing feedback: {message}");
         }
         else
         {
@@ -519,30 +468,33 @@ public class CompositionGameController : MonoBehaviour
             totalTargets++;
             Debug.Log($"Next button clicked: nextClickCount={nextClickCount}, totalTargets={totalTargets}");
 
-            // Clear UI elements before initializing new problem
-            ClearSlot(leftDigitSlot, "leftDigitSlot");
-            ClearSlot(rightDigitSlot, "rightDigitSlot");
+            UpdateProgressBar();
+
+            if (leftDigitSlot != null && leftDigitSlot.slotText != null)
+                leftDigitSlot.slotText.text = "";
+            else
+                Debug.LogError("Cannot clear leftDigitSlot: slot or slotText is null!");
+
+            if (rightDigitSlot != null && rightDigitSlot.slotText != null)
+                rightDigitSlot.slotText.text = "";
+            else
+                Debug.LogError("Cannot clear rightDigitSlot: slot or slotText is null!");
 
             if (feedbackText != null)
-            {
                 feedbackText.text = "";
-                Debug.Log("Cleared feedbackText in OnNextButtonClicked.");
-            }
             else
-            {
-                Debug.LogWarning("Cannot clear feedbackText in OnNextButtonClicked: feedbackText is null!");
-            }
+                Debug.LogError("Cannot clear feedbackText: feedbackText is null!");
 
             ClearExtraPanels();
-            // Force a new target by resetting initialization flag
+
             isTargetInitialized = false;
             InitializeProblem();
 
             if (nextClickCount >= minNumCompositions && nextButton != null)
             {
                 nextButton.interactable = false;
+                Debug.Log("Minimum compositions reached, disabling nextButton and checking win condition.");
                 CheckGameWinCondition();
-                Debug.Log("Minimum compositions reached, nextButton disabled.");
             }
         }
     }
@@ -550,7 +502,9 @@ public class CompositionGameController : MonoBehaviour
     private async void CheckGameWinCondition()
     {
         float progress = totalTargets > 0 ? (correctTargets / (float)totalTargets) * 100f : 0f;
-        if (progress >= 75f)
+        Debug.Log($"Checking win condition: progress={progress:F1}%, correctTargets={correctTargets}, totalTargets={totalTargets}");
+
+        if (progress >= requiredCorrectAnswersMinimumPercent)
         {
             ShowFeedback($"You win! Progress: {progress:F1}%", 5f);
             await UpdatePlayerScores(progress);
@@ -558,7 +512,7 @@ public class CompositionGameController : MonoBehaviour
         }
         else
         {
-            ShowFeedback($"Game Over! Progress: {progress:F1}% (Need 75%)", 5f);
+            ShowFeedback($"Game Over! Progress: {progress:F1}% (Need {requiredCorrectAnswersMinimumPercent}%)", 5f);
             await UpdatePlayerScores(progress);
             StartCoroutine(DelayedSceneLoad("GameOver", 5f));
         }
@@ -566,7 +520,7 @@ public class CompositionGameController : MonoBehaviour
 
     private async Task UpdatePlayerScores(float currentProgress)
     {
-        if (!isFirebaseInitialized || playerUid == null || databaseReference == null)
+        if (!isFirebaseInitialized || string.IsNullOrEmpty(playerUid) || databaseReference == null)
         {
             Debug.LogError("Cannot update scores: Firebase not initialized or playerUid/databaseReference is null!");
             return;
@@ -574,7 +528,6 @@ public class CompositionGameController : MonoBehaviour
 
         try
         {
-            // Fetch current gameProgress
             DataSnapshot snapshot = await databaseReference
                 .Child("users")
                 .Child(playerUid)
@@ -596,18 +549,15 @@ public class CompositionGameController : MonoBehaviour
                 Debug.Log($"No existing scores found for {playerUid}, initializing with zeros.");
             }
 
-            // Determine new scores
             float newBestScore = Mathf.Max(currentProgress, bestScore);
             float newLastScore = currentProgress;
 
-            // Prepare updates
             Dictionary<string, object> scoreUpdates = new Dictionary<string, object>
             {
                 { "bestScore", newBestScore },
                 { "lastScore", newLastScore }
             };
 
-            // Update Firebase
             await databaseReference
                 .Child("users")
                 .Child(playerUid)
@@ -616,10 +566,15 @@ public class CompositionGameController : MonoBehaviour
                 .UpdateChildrenAsync(scoreUpdates);
 
             Debug.Log($"Updated scores for {playerUid}: bestScore={newBestScore}, lastScore={newLastScore}");
+
+            currentCoins += earnedCoins;
+            await SaveCoinsToDatabase();
+            earnedCoins = 0;
+            UpdateCoinDisplay();
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"Failed to update scores for {playerUid}: {e.Message}");
+            Debug.LogError($"Failed to update scores or coins for {playerUid}: {e.Message}\nStackTrace: {e.StackTrace}");
         }
     }
 
@@ -644,21 +599,75 @@ public class CompositionGameController : MonoBehaviour
         if (manager != null)
         {
             manager.ClearPanels();
+            Debug.Log("Cleared extra panels via CompositionPanelManager.");
         }
         else
         {
-            Debug.LogWarning("Could not find CompositionPanelManager in scene!");
+            Debug.LogWarning("CompositionPanelManager not found, attempting to clear panels manually.");
+            var panels = FindObjectsOfType<Transform>().Where(t => t.CompareTag("CompositionPanel") || t.name.Contains("Panel")).ToList();
+            foreach (var panel in panels)
+            {
+                if (panel != null && panel.gameObject != gameObject)
+                {
+                    panel.gameObject.SetActive(false);
+                    Debug.Log($"Deactivated panel: {panel.gameObject.name}");
+                }
+            }
+            if (panels.Count == 0)
+            {
+                Debug.LogWarning("No panels found to clear!");
+            }
         }
     }
 
     public void ClearSlotsForNewComposition()
     {
-        ClearSlot(leftDigitSlot, "leftDigitSlot");
-        ClearSlot(rightDigitSlot, "rightDigitSlot");
+        if (leftDigitSlot != null && leftDigitSlot.slotText != null)
+            leftDigitSlot.slotText.text = "";
+        else
+            Debug.LogError("Cannot clear leftDigitSlot: slot or slotText is null!");
+
+        if (rightDigitSlot != null && rightDigitSlot.slotText != null)
+            rightDigitSlot.slotText.text = "";
+        else
+            Debug.LogError("Cannot clear rightDigitSlot: slot or slotText is null!");
+
         if (feedbackText != null)
-        {
             feedbackText.text = "";
+        else
+            Debug.LogError("Cannot clear feedbackText: feedbackText is null!");
+    }
+
+    private void IncrementQuestionsSolved()
+    {
+        if (!isFirebaseInitialized || string.IsNullOrEmpty(playerUid) || databaseReference == null)
+        {
+            Debug.LogError("Cannot increment questionsSolved: Firebase not initialized or playerUid/databaseReference is null!");
+            return;
         }
+
+        DatabaseReference questionsRef = databaseReference
+            .Child("users")
+            .Child(playerUid)
+            .Child("playerProfile")
+            .Child("questionsSolved");
+
+        questionsRef.RunTransaction(mutableData =>
+        {
+            long currentValue = mutableData.Value != null && long.TryParse(mutableData.Value.ToString(), out long val) ? val : 0;
+            mutableData.Value = currentValue + 1;
+            return TransactionResult.Success(mutableData);
+        }).ContinueWith(task =>
+        {
+            if (task.IsFaulted)
+            {
+                Debug.LogError($"Failed to increment questionsSolved for {playerUid}: {task.Exception?.InnerExceptions?.Aggregate("", (current, ex) => current + ex.Message + "\n")}");
+            }
+            else
+            {
+                Debug.Log($"Incremented questionsSolved for {playerUid}");
+            }
+        });
     }
 
     public void CheckSolution()
@@ -669,10 +678,7 @@ public class CompositionGameController : MonoBehaviour
             return;
         }
 
-        string leftText = leftDigitSlot.slotText.GetComponent<TMP_InputField>()?.text ?? leftDigitSlot.slotText.text;
-        string rightText = rightDigitSlot.slotText.GetComponent<TMP_InputField>()?.text ?? rightDigitSlot.slotText.text;
-
-        if (!int.TryParse(leftText, out int leftDigit) || !int.TryParse(rightText, out int rightDigit))
+        if (!int.TryParse(leftDigitSlot.slotText.text, out int leftDigit) || !int.TryParse(rightDigitSlot.slotText.text, out int rightDigit))
         {
             ShowFeedback("Please enter valid numbers!", 1.5f);
             return;
@@ -701,8 +707,10 @@ public class CompositionGameController : MonoBehaviour
                 foundCompositions.Add(compositionKey);
                 UpdateCompositionsFoundText();
                 ShowFeedback($"Correct! {leftDigit}×{rightDigit}={targetNumber}\nFound {foundCompositions.Count}/{allPossibleCompositions.Count} unique pairs", 2f);
-                if (ScoreManager.Instance != null)
-                    ScoreManager.Instance.AddScore(10);
+                earnedCoins += 10; // Increment earned coins
+                UpdateCoinDisplay();
+                StartCoroutine(SaveCoinsToDatabaseCoroutine()); // Save coins to Firebase
+                IncrementQuestionsSolved(); // Increment questions solved
 
                 float halfPairs = Mathf.Ceil(allPossibleCompositions.Count / 2f);
                 if (foundCompositions.Count >= halfPairs && !targetCountedAsCorrect)
@@ -723,22 +731,31 @@ public class CompositionGameController : MonoBehaviour
         else
         {
             ShowFeedback($"Incorrect! {leftDigit}×{rightDigit}={product}, not {targetNumber}", 1.5f);
-            if (ScoreManager.Instance != null)
-                ScoreManager.Instance.AddScore(-5);
+            if (earnedCoins >= 5)
+            {
+                earnedCoins -= 5; // Deduct coins for incorrect answer
+                UpdateCoinDisplay();
+                StartCoroutine(SaveCoinsToDatabaseCoroutine()); // Save coins to Firebase
+            }
         }
+    }
+
+    private IEnumerator SaveCoinsToDatabaseCoroutine()
+    {
+        yield return SaveCoinsToDatabase();
     }
 
     private void UpdateProgressBar()
     {
         if (progressBar != null)
         {
-            float progress = totalTargets > 0 ? (correctTargets / (float)totalTargets) * 100 : 0;
-            progressBar.value = Mathf.Clamp(progress, 0f, 100f);
-            Debug.Log($"ProgressBar updated: value={progressBar.value:F1}%, handlePos={(starHandle != null ? starHandle.anchoredPosition : Vector2.zero)}, correctTargets={correctTargets}, totalTargets={totalTargets}");
+            float progress = totalTargets > 0 ? (correctTargets / (float)totalTargets) * 100f : 0f;
+            progressBar.value = Mathf.Clamp(progress, progressBar.minValue, progressBar.maxValue);
+            Debug.Log($"ProgressBar updated: value={progress:F1}%, handlePos={(starHandle != null ? starHandle.anchoredPosition : Vector2.zero)}, correctTargets={correctTargets}, totalTargets={totalTargets}");
         }
         else
         {
-            Debug.LogWarning("Cannot update ProgressBar: progressBar is null!");
+            Debug.LogError("Cannot update ProgressBar: progressBar is null!");
         }
     }
 
