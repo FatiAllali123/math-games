@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Firebase.Database;
 using Firebase.Extensions;
 using UnityEngine;
+using UnityEngine.SceneManagement; // pour la gestion des scÃ¨nes
 
 public class GroupChecker : MonoBehaviour
 {
@@ -14,13 +15,13 @@ public class GroupChecker : MonoBehaviour
     {
         if (UserSession.Instance == null || UserSession.Instance.CurrentUser == null)
         {
-            Debug.LogError("Aucun utilisateur connecté !");
+            Debug.LogError("Aucun utilisateur connectï¿½ !");
             return;
         }
 
         if (string.IsNullOrEmpty(TestSession.CurrentTestId))
         {
-            Debug.LogError("Aucun test sélectionné !");
+            Debug.LogError("Aucun test sï¿½lectionnï¿½ !");
             return;
         }
 
@@ -41,7 +42,7 @@ public class GroupChecker : MonoBehaviour
             DataSnapshot testSnapshot = task.Result;
             string foundGroup = null;
 
-            // Vérifie chaque mini-jeu
+            // Vï¿½rifie chaque mini-jeu
             if (testSnapshot.Child("miniGameConfigs").Exists)
             {
                 foreach (var miniGame in testSnapshot.Child("miniGameConfigs").Children)
@@ -72,11 +73,11 @@ public class GroupChecker : MonoBehaviour
                 }
             }
 
-            // Décider de l’ordre à suivre
+            // Dï¿½cider de lï¿½ordre ï¿½ suivre
             if (foundGroup != null)
             {
                 userGroup = foundGroup;
-                Debug.Log("L'étudiant appartient au groupe : " + userGroup);
+                Debug.Log("L'ï¿½tudiant appartient au groupe : " + userGroup);
 
                 var groupOrder = testSnapshot.Child("groupsMiniGameOrder").Child(userGroup);
                 if (groupOrder.Exists)
@@ -89,7 +90,7 @@ public class GroupChecker : MonoBehaviour
             }
             else
             {
-                Debug.Log("L’étudiant n'appartient à aucun groupe, ordre standard sera utilisé.");
+                Debug.Log("Lï¿½ï¿½tudiant n'appartient ï¿½ aucun groupe, ordre standard sera utilisï¿½.");
                 var defaultOrder = testSnapshot.Child("miniGameOrder");
                 if (defaultOrder.Exists)
                 {
@@ -100,9 +101,9 @@ public class GroupChecker : MonoBehaviour
                 }
             }
 
-            Debug.Log("Ordre des jeux sélectionné : " + string.Join(", ", orderedMiniGames));
+            Debug.Log("Ordre des jeux sï¿½lectionnï¿½ : " + string.Join(", ", orderedMiniGames));
 
-            //Charger les configurations pour chaque mini-jeu (après avoir rempli la liste)
+            //Charger les configurations pour chaque mini-jeu (aprï¿½s avoir rempli la liste)
             foreach (string gameName in orderedMiniGames)
             {
                 var gameSnapshot = testSnapshot.Child("miniGameConfigs").Child(gameName);
@@ -124,15 +125,20 @@ public class GroupChecker : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"Aucune configuration trouvée pour {gameName}");
+                    Debug.LogWarning($"Aucune configuration trouvï¿½e pour {gameName}");
                     continue;
                 }
 
                 TestConfiguration.MiniGameConfigs[gameName] = config;
-                Debug.Log($"Config chargée pour {gameName}: {string.Join(", ", config)}");
+                Debug.Log($"Config chargï¿½e pour {gameName}: {string.Join(", ", config)}");
             }
+            // Redirection vers la scÃ¨ne verticalOperationsScene
+            SceneManager.LoadScene("VerticalOperationsScene");
         });
     }
 
 
 }
+
+
+
