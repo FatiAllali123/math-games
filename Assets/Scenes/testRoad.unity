@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 323518404}
   - component: {fileID: 323518403}
   - component: {fileID: 323518406}
+  - component: {fileID: 323518406}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -503,6 +504,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1442956042}
   - component: {fileID: 1442956041}
+  - component: {fileID: 1442956043}
   m_Layer: 0
   m_Name: OrdrerGames
   m_TagString: Untagged
