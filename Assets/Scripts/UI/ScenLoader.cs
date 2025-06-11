@@ -1,6 +1,5 @@
-using System.Diagnostics;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 public class SceneLoader : MonoBehaviour
 {
     public static SceneLoader Instance;
@@ -24,7 +23,9 @@ public class SceneLoader : MonoBehaviour
     public void LoadSceneWithTransition(string targetScene)
     {
         targetSceneName = targetScene;
-        UnityEngine.SceneManagement.SceneManager.LoadScene("transition"); // charge la scène intermédiaire
+        // UnityEngine.SceneManagement.SceneManager.LoadScene("transition"  , LoadSceneMode.Additive); // charge la scène intermédiaire
+        //UnityEngine.SceneManagement.SceneManager.LoadScene("transition", LoadSceneMode.Additive);
+        SceneManager.LoadScene("transition", LoadSceneMode.Additive);
     }
 }
 

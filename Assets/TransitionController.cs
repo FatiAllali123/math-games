@@ -4,6 +4,8 @@ using UnityEngine.SceneManagement;
 using System.Collections;
 
 
+
+
 public class TransitionController : MonoBehaviour
 {
     private string nextSceneName;
@@ -14,6 +16,11 @@ public class TransitionController : MonoBehaviour
     public Slider loadingBar;
     public float animDuration = 1.0f;
     public float fadeDuration = 0.5f; // durée du fade-in
+
+
+    private Color goldColor = new Color(1f, 0.843f, 0f);
+
+    public Image fillImage;
 
     void Start()
     {
@@ -66,39 +73,55 @@ public class TransitionController : MonoBehaviour
     }
 
 
-IEnumerator LoadSceneWithBar()
-{
-    loadingBar.gameObject.SetActive(true);
-
-    nextSceneName = SceneLoader.Instance.targetSceneName; // récupère le nom de scène
-
-    if (string.IsNullOrEmpty(nextSceneName))
+    IEnumerator LoadSceneWithBar()
     {
-        Debug.LogError("Nom de la scène cible vide !");
-        yield break;
+        loadingBar.gameObject.SetActive(true);
+
+        nextSceneName = SceneLoader.Instance.targetSceneName;
+
+        if (string.IsNullOrEmpty(nextSceneName))
+        {
+            Debug.LogError("Nom de la scène cible vide !");
+            yield break;
+        }
+
+        AsyncOperation op = SceneManager.LoadSceneAsync(nextSceneName, LoadSceneMode.Single); // ou Additive si tu veux gérer manuellement
+        op.allowSceneActivation = false;
+
+        while (op.progress < 0.9f)
+        {
+            loadingBar.value = op.progress;
+            fillImage.color = Color.Lerp(Color.red, goldColor, loadingBar.value);
+            yield return null;
+        }
+
+        // Remplissage final
+        float time = 0;
+        while (time < 1f)
+        {
+            loadingBar.value = Mathf.Lerp(0.9f, 1f, time);
+            fillImage.color = Color.Lerp(Color.red, goldColor, loadingBar.value);
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        loadingBar.value = 1f;
+        fillImage.color = goldColor;
+
+        yield return new WaitForSeconds(0.5f);
+
+        op.allowSceneActivation = true;
+
+        // Optionnel : attendre l'activation de la scène
+        while (!op.isDone)
+        {
+            yield return null;
+        }
+
+        // Détruire la scène de transition après l’activation
+        SceneManager.UnloadSceneAsync("NomDeLaSceneDeTransition");
     }
 
-    UnityEngine.AsyncOperation op = SceneManager.LoadSceneAsync(nextSceneName);
-    op.allowSceneActivation = false;
 
-    while (op.progress < 0.9f)
-    {
-        loadingBar.value = op.progress;
-        yield return null;
-    }
-
-    float time = 0;
-    while (time < 1f)
-    {
-        loadingBar.value = Mathf.Lerp(0.9f, 1f, time);
-        time += Time.deltaTime;
-        yield return null;
-    }
-
-    loadingBar.value = 1f;
-    yield return new WaitForSeconds(0.5f);
-
-    op.allowSceneActivation = true;
-}
 
 }
