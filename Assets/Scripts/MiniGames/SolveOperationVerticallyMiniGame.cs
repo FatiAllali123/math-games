@@ -46,7 +46,8 @@ public class SolveOperationVerticallyMiniGame : MathoriaMiniGameWidget
     private float requiredCorrectAnswersMinimumPercent;
     private bool isGameOver = false; // Indique si le jeu est terminé
 
-    void Start()
+    void Start() => StartCoroutine(Initialize());
+    private IEnumerator Initialize()
     {
         // Récupérer les paramètres depuis GameManager
         if (GameManager.Instance != null)
