@@ -71,6 +71,7 @@ public class GroupChecker : MonoBehaviour
 
                     if (foundGroup != null) break;
                 }
+
             }
 
             // D�cider de l�ordre � suivre
@@ -132,9 +133,18 @@ public class GroupChecker : MonoBehaviour
                 TestConfiguration.MiniGameConfigs[gameName] = config;
                 Debug.Log($"Config charg�e pour {gameName}: {string.Join(", ", config)}");
             }
+<<<<<<< HEAD
+
+            GameSessionStatus.Initialize(orderedMiniGames);
+            FindObjectOfType<MiniGameMenu>().ShowMenu(orderedMiniGames);
+=======
             // Redirection vers la scène verticalOperationsScene
             SceneManager.LoadScene("VerticalOperationsScene");
+>>>>>>> e4ad734cdbbd9e150e8622b464f8d28d32999e9b
         });
+
+
+   
     }
 
 

@@ -27,14 +27,11 @@ EditorBuildSettings:
     path: Assets/Scenes/testRoad.unity
     guid: 8751fd8fc634b7241925f70fbfce1ce0
   - enabled: 1
-    path: Assets/Scenes/find_compositions.unity
-    guid: b14481c4707ed0d459689edb1cbfc48d
+    path: Assets/Scenes/ChoiceScene.unity
+    guid: b022c5080adece942a1acb457f07c59d
   - enabled: 1
-    path: Assets/Scenes/GameOver.unity
-    guid: f7c9dffe7a7399b4a8e1056d13d222d4
-  - enabled: 1
-    path: Assets/Scenes/WinScene.unity
-    guid: 3afe7cf851583ce4d8720850b84cdf7c
+    path: Assets/Scenes/VerticalOperationScenee.unity
+    guid: 23ffec39f67f4c640ba0d71b7dafe8b6
   m_configObjects:
     com.unity.adaptiveperformance.google.android.provider_settings: {fileID: 11400000, guid: 9c6731f7965d7f5439e87b2c784bcdf0, type: 2}
     com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: 2e752e94b781e76418bacd98c97864a5, type: 2}
