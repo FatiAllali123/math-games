@@ -2,34 +2,26 @@ using System.Collections.Generic;
 using Firebase.Database;
 using Firebase.Extensions;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.SceneManagement; // pour la gestion des scÃ¨nes
 
 public class GroupChecker : MonoBehaviour
 {
     public List<string> orderedMiniGames = new List<string>();
-    public string userGroup = null;
+    public string userGroup = null; // Peut rester null si pas de groupe
 
     private DatabaseReference dbReference;
 
     void Start()
     {
-        // Vérifiez que GameSession existe, sinon la crée
-        if (GameSession.Instance == null)
-        {
-            var gameSessionObj = new GameObject("GameSession");
-            gameSessionObj.AddComponent<GameSession>();
-        }
-
         if (UserSession.Instance == null || UserSession.Instance.CurrentUser == null)
         {
-            Debug.LogError("Aucun utilisateur connecté !");
-            SceneManager.LoadScene("LoginScene");
+            Debug.LogError("Aucun utilisateur connectï¿½ !");
             return;
         }
 
         if (string.IsNullOrEmpty(TestSession.CurrentTestId))
         {
-            Debug.LogError("Aucun test sélectionné !");
+            Debug.LogError("Aucun test sï¿½lectionnï¿½ !");
             return;
         }
 
@@ -41,31 +33,27 @@ public class GroupChecker : MonoBehaviour
     {
         dbReference.Child("tests").Child(testId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
-            if (task.IsFaulted)
+            if (task.IsFaulted || !task.Result.Exists)
             {
-                Debug.LogError("Erreur de chargement: " + task.Exception);
-                return;
-            }
-
-            if (!task.Result.Exists)
-            {
-                Debug.LogError("Test inexistant !");
+                Debug.LogError("Erreur ou test inexistant !");
                 return;
             }
 
             DataSnapshot testSnapshot = task.Result;
             string foundGroup = null;
 
-            // Recherche du groupe de l'étudiant
+            // Vï¿½rifie chaque mini-jeu
             if (testSnapshot.Child("miniGameConfigs").Exists)
             {
                 foreach (var miniGame in testSnapshot.Child("miniGameConfigs").Children)
                 {
+                    var gameKey = miniGame.Key;
                     var groupsConfig = miniGame.Child("groupsConfig");
                     if (!groupsConfig.Exists) continue;
 
                     foreach (var group in groupsConfig.Children)
                     {
+                        var groupName = group.Key;
                         var studentIds = group.Child("studentIds");
                         if (!studentIds.Exists) continue;
 
@@ -73,21 +61,23 @@ public class GroupChecker : MonoBehaviour
                         {
                             if (id.Value != null && id.Value.ToString() == studentId)
                             {
-                                foundGroup = group.Key;
+                                foundGroup = groupName;
                                 break;
                             }
                         }
+
                         if (foundGroup != null) break;
                     }
+
                     if (foundGroup != null) break;
                 }
             }
 
-            // Détermination de l'ordre des jeux
+            // Dï¿½cider de lï¿½ordre ï¿½ suivre
             if (foundGroup != null)
             {
                 userGroup = foundGroup;
-                Debug.Log("Groupe trouvé: " + userGroup);
+                Debug.Log("L'ï¿½tudiant appartient au groupe : " + userGroup);
 
                 var groupOrder = testSnapshot.Child("groupsMiniGameOrder").Child(userGroup);
                 if (groupOrder.Exists)
@@ -100,7 +90,7 @@ public class GroupChecker : MonoBehaviour
             }
             else
             {
-                Debug.Log("Utilisation de l'ordre par défaut");
+                Debug.Log("Lï¿½ï¿½tudiant n'appartient ï¿½ aucun groupe, ordre standard sera utilisï¿½.");
                 var defaultOrder = testSnapshot.Child("miniGameOrder");
                 if (defaultOrder.Exists)
                 {
@@ -111,62 +101,44 @@ public class GroupChecker : MonoBehaviour
                 }
             }
 
-            // Initialisation de GameSession si nécessaire
-            if (GameSession.Instance == null)
-            {
-                var gameSessionObj = new GameObject("GameSession");
-                gameSessionObj.AddComponent<GameSession>();
-            }
+            Debug.Log("Ordre des jeux sï¿½lectionnï¿½ : " + string.Join(", ", orderedMiniGames));
 
-            // Sauvegarde des données
-            GameSession.Instance.CurrentTestId = testId;
-            GameSession.Instance.StudentGroup = userGroup;
-            GameSession.Instance.MiniGameOrder = new List<string>(orderedMiniGames);
-
-            // Chargement des configurations
+            //Charger les configurations pour chaque mini-jeu (aprï¿½s avoir rempli la liste)
             foreach (string gameName in orderedMiniGames)
             {
-                var gameConfig = new Dictionary<string, object>();
                 var gameSnapshot = testSnapshot.Child("miniGameConfigs").Child(gameName);
+                Dictionary<string, object> config = new Dictionary<string, object>();
 
-                if (!string.IsNullOrEmpty(userGroup))
+                if (userGroup != null && gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config").Exists)
                 {
-                    var groupConfig = gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config");
-                    if (groupConfig.Exists)
+                    foreach (var field in gameSnapshot.Child("groupsConfig").Child(userGroup).Child("config").Children)
                     {
-                        foreach (var field in groupConfig.Children)
-                        {
-                            gameConfig[field.Key] = field.Value;
-                        }
+                        config[field.Key] = field.Value;
                     }
                 }
-
-                if (gameConfig.Count == 0 && gameSnapshot.Child("gradeConfig").Child("config").Exists)
+                else if (gameSnapshot.Child("gradeConfig").Child("config").Exists)
                 {
-                    var gradeConfig = gameSnapshot.Child("gradeConfig").Child("config");
-                    foreach (var field in gradeConfig.Children)
+                    foreach (var field in gameSnapshot.Child("gradeConfig").Child("config").Children)
                     {
-                        gameConfig[field.Key] = field.Value;
+                        config[field.Key] = field.Value;
                     }
                 }
-
-                if (gameConfig.Count > 0)
+                else
                 {
-                    GameSession.Instance.MiniGameConfigs[gameName] = gameConfig;
-                    Debug.Log($"Config {gameName} chargée: {string.Join(", ", gameConfig)}");
+                    Debug.LogWarning($"Aucune configuration trouvï¿½e pour {gameName}");
+                    continue;
                 }
-            }
 
-            // Chargement de la scène de jeu
-            if (orderedMiniGames.Count > 0)
-            {
-                Debug.Log("Redirection vers ChoiceScene");
-                SceneManager.LoadScene("ChoiceScene");
+                TestConfiguration.MiniGameConfigs[gameName] = config;
+                Debug.Log($"Config chargï¿½e pour {gameName}: {string.Join(", ", config)}");
             }
-            else
-            {
-                Debug.LogError("Aucun mini-jeu configuré !");
-            }
+            // Redirection vers la scÃ¨ne verticalOperationsScene
+            SceneManager.LoadScene("VerticalOperationsScene");
         });
     }
+
+
 }
+
+
+

@@ -12,7 +12,6 @@ public class CompositionPanelManager : MonoBehaviour
     private void Start()
     {
         addCompositionButton.onClick.AddListener(() => AddNewCompositionPanel(false));
-
     }
 
     public void AddNewCompositionPanel(bool isFirstPanel)
@@ -29,7 +28,14 @@ public class CompositionPanelManager : MonoBehaviour
         var controller = newPanel.GetComponent<CompositionGameController>();
         if (controller != null)
         {
-            controller.InitializeProblem();
+            if (isFirstPanel)
+            {
+                controller.InitializeProblem(); // First panel sets target
+            }
+            else
+            {
+                controller.ClearSlotsForNewComposition(); // Additional panels use same target
+            }
         }
 
         // Add extra time for additional panels
@@ -41,5 +47,14 @@ public class CompositionPanelManager : MonoBehaviour
         // Update layout
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(panelsParent.GetComponent<RectTransform>());
+    }
+
+    // *** New: Clear extra panels ***
+    public void ClearPanels()
+    {
+        for (int i = 1; i < panelsParent.childCount; i++) // Skip first panel
+        {
+            Destroy(panelsParent.GetChild(i).gameObject);
+        }
     }
 }
