@@ -159,6 +159,3 @@ Press **Play** in the Unity Editor, or build for Android via `File → Build Set
 - **Animated Avatars** — guide, encourage, and give feedback to students
 - **Celebratory Animations** — triggered on correct answers and level-ups
 
----
-
--
