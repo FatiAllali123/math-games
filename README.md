@@ -14,8 +14,6 @@
 - [Mini-Games](#mini-games)
 - [Teacher Dashboard](#teacher-dashboard)
 - [Gamification](#gamification)
-- [Contributing](#contributing)
-- [Contact](#contact)
 
 ---
 
